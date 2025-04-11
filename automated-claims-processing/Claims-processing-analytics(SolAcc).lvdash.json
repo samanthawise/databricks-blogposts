@@ -181,7 +181,7 @@
       "widget" : {
         "name" : "c822c49c",
         "queries" : [ {
-          "name" : "dashboards/01f004e6ca4f16c7b557048b68cdcba1/datasets/01f004e6d4211064ac2f27f6a3039824_call_datetime",
+          "name" : "dashboards/01f004e6ca4f16c7b557048b68cdcba1/datasets/01f014945e611854a4aabacc90515896_call_datetime",
           "query" : {
             "datasetName" : "dafdab50",
             "fields" : [ {
@@ -201,7 +201,7 @@
             "fields" : [ {
               "fieldName" : "call_datetime",
               "displayName" : "call_datetime",
-              "queryName" : "dashboards/01f004e6ca4f16c7b557048b68cdcba1/datasets/01f004e6d4211064ac2f27f6a3039824_call_datetime"
+              "queryName" : "dashboards/01f004e6ca4f16c7b557048b68cdcba1/datasets/01f014945e611854a4aabacc90515896_call_datetime"
             } ]
           },
           "selection" : {
@@ -219,7 +219,10 @@
           },
           "frame" : {
             "showTitle" : true,
-            "title" : "Date Range"
+            "title" : "Date Range",
+            "headerAlignment" : "center",
+            "showDescription" : true,
+            "description" : "Select the da"
           }
         }
       },
