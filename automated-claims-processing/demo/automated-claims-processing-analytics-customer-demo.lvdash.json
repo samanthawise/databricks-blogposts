@@ -1287,7 +1287,288 @@
         "width" : 5,
         "height" : 3
       }
-    } ]
+    }, {
+      "widget" : {
+        "name" : "586f4f8a",
+        "queries" : [ {
+          "name" : "main_query",
+          "query" : {
+            "datasetName" : "dafdab50",
+            "fields" : [ {
+              "name" : "policy_number",
+              "expression" : "`policy_number`"
+            }, {
+              "name" : "call_id",
+              "expression" : "`call_id`"
+            }, {
+              "name" : "agent_id",
+              "expression" : "`agent_id`"
+            }, {
+              "name" : "call_datetime",
+              "expression" : "`call_datetime`"
+            }, {
+              "name" : "classification",
+              "expression" : "`classification`"
+            } ],
+            "disaggregated" : true
+          }
+        } ],
+        "spec" : {
+          "version" : 1,
+          "widgetType" : "table",
+          "encodings" : {
+            "columns" : [ {
+              "fieldName" : "policy_number",
+              "title" : "policy_number",
+              "booleanValues" : [ "false", "true" ],
+              "type" : "string",
+              "displayAs" : "string",
+              "visible" : true,
+              "displayName" : "policy_number"
+            }, {
+              "fieldName" : "call_id",
+              "title" : "call_id",
+              "booleanValues" : [ "false", "true" ],
+              "type" : "string",
+              "displayAs" : "string",
+              "visible" : true,
+              "displayName" : "call_id"
+            }, {
+              "fieldName" : "agent_id",
+              "title" : "agent_id",
+              "booleanValues" : [ "false", "true" ],
+              "type" : "string",
+              "displayAs" : "string",
+              "visible" : true,
+              "displayName" : "agent_id"
+            }, {
+              "fieldName" : "call_datetime",
+              "title" : "call_datetime",
+              "booleanValues" : [ "false", "true" ],
+              "type" : "datetime",
+              "displayAs" : "datetime",
+              "visible" : true,
+              "displayName" : "call_datetime"
+            }, {
+              "fieldName" : "classification",
+              "title" : "classification",
+              "booleanValues" : [ "false", "true" ],
+              "type" : "string",
+              "displayAs" : "string",
+              "visible" : true,
+              "displayName" : "classification"
+            } ]
+          },
+          "invisibleColumns" : [ {
+            "booleanValues" : [ "false", "true" ],
+            "imageUrlTemplate" : "{{ @ }}",
+            "imageTitleTemplate" : "{{ @ }}",
+            "imageWidth" : "",
+            "imageHeight" : "",
+            "linkUrlTemplate" : "{{ @ }}",
+            "linkTextTemplate" : "{{ @ }}",
+            "linkTitleTemplate" : "{{ @ }}",
+            "linkOpenInNewTab" : true,
+            "name" : "file_path",
+            "type" : "string",
+            "displayAs" : "string",
+            "order" : 100000,
+            "title" : "file_path",
+            "allowSearch" : false,
+            "alignContent" : "left",
+            "allowHTML" : false,
+            "highlightLinks" : false,
+            "useMonospaceFont" : false,
+            "preserveWhitespace" : false
+          }, {
+            "booleanValues" : [ "false", "true" ],
+            "imageUrlTemplate" : "{{ @ }}",
+            "imageTitleTemplate" : "{{ @ }}",
+            "imageWidth" : "",
+            "imageHeight" : "",
+            "linkUrlTemplate" : "{{ @ }}",
+            "linkTextTemplate" : "{{ @ }}",
+            "linkTitleTemplate" : "{{ @ }}",
+            "linkOpenInNewTab" : true,
+            "name" : "file_name",
+            "type" : "string",
+            "displayAs" : "string",
+            "order" : 100001,
+            "title" : "file_name",
+            "allowSearch" : false,
+            "alignContent" : "left",
+            "allowHTML" : false,
+            "highlightLinks" : false,
+            "useMonospaceFont" : false,
+            "preserveWhitespace" : false
+          }, {
+            "numberFormat" : "0.00",
+            "booleanValues" : [ "false", "true" ],
+            "imageUrlTemplate" : "{{ @ }}",
+            "imageTitleTemplate" : "{{ @ }}",
+            "imageWidth" : "",
+            "imageHeight" : "",
+            "linkUrlTemplate" : "{{ @ }}",
+            "linkTextTemplate" : "{{ @ }}",
+            "linkTitleTemplate" : "{{ @ }}",
+            "linkOpenInNewTab" : true,
+            "name" : "audio_duration",
+            "type" : "float",
+            "displayAs" : "number",
+            "order" : 100002,
+            "title" : "audio_duration",
+            "allowSearch" : false,
+            "alignContent" : "right",
+            "allowHTML" : false,
+            "highlightLinks" : false,
+            "useMonospaceFont" : false,
+            "preserveWhitespace" : false
+          }, {
+            "booleanValues" : [ "false", "true" ],
+            "imageUrlTemplate" : "{{ @ }}",
+            "imageTitleTemplate" : "{{ @ }}",
+            "imageWidth" : "",
+            "imageHeight" : "",
+            "linkUrlTemplate" : "{{ @ }}",
+            "linkTextTemplate" : "{{ @ }}",
+            "linkTitleTemplate" : "{{ @ }}",
+            "linkOpenInNewTab" : true,
+            "name" : "sentiment",
+            "type" : "string",
+            "displayAs" : "string",
+            "order" : 100006,
+            "title" : "sentiment",
+            "allowSearch" : false,
+            "alignContent" : "left",
+            "allowHTML" : false,
+            "highlightLinks" : false,
+            "useMonospaceFont" : false,
+            "preserveWhitespace" : false
+          }, {
+            "booleanValues" : [ "false", "true" ],
+            "imageUrlTemplate" : "{{ @ }}",
+            "imageTitleTemplate" : "{{ @ }}",
+            "imageWidth" : "",
+            "imageHeight" : "",
+            "linkUrlTemplate" : "{{ @ }}",
+            "linkTextTemplate" : "{{ @ }}",
+            "linkTitleTemplate" : "{{ @ }}",
+            "linkOpenInNewTab" : true,
+            "name" : "summary",
+            "type" : "string",
+            "displayAs" : "string",
+            "order" : 100007,
+            "title" : "summary",
+            "allowSearch" : false,
+            "alignContent" : "left",
+            "allowHTML" : false,
+            "highlightLinks" : false,
+            "useMonospaceFont" : false,
+            "preserveWhitespace" : false
+          }, {
+            "booleanValues" : [ "false", "true" ],
+            "imageUrlTemplate" : "{{ @ }}",
+            "imageTitleTemplate" : "{{ @ }}",
+            "imageWidth" : "",
+            "imageHeight" : "",
+            "linkUrlTemplate" : "{{ @ }}",
+            "linkTextTemplate" : "{{ @ }}",
+            "linkTitleTemplate" : "{{ @ }}",
+            "linkOpenInNewTab" : true,
+            "name" : "email_response",
+            "type" : "string",
+            "displayAs" : "string",
+            "order" : 100009,
+            "title" : "email_response",
+            "allowSearch" : false,
+            "alignContent" : "left",
+            "allowHTML" : false,
+            "highlightLinks" : false,
+            "useMonospaceFont" : false,
+            "preserveWhitespace" : false
+          }, {
+            "booleanValues" : [ "false", "true" ],
+            "imageUrlTemplate" : "{{ @ }}",
+            "imageTitleTemplate" : "{{ @ }}",
+            "imageWidth" : "",
+            "imageHeight" : "",
+            "linkUrlTemplate" : "{{ @ }}",
+            "linkTextTemplate" : "{{ @ }}",
+            "linkTitleTemplate" : "{{ @ }}",
+            "linkOpenInNewTab" : true,
+            "name" : "summary_masked",
+            "type" : "string",
+            "displayAs" : "string",
+            "order" : 100010,
+            "title" : "summary_masked",
+            "allowSearch" : false,
+            "alignContent" : "left",
+            "allowHTML" : false,
+            "highlightLinks" : false,
+            "useMonospaceFont" : false,
+            "preserveWhitespace" : false
+          }, {
+            "booleanValues" : [ "false", "true" ],
+            "imageUrlTemplate" : "{{ @ }}",
+            "imageTitleTemplate" : "{{ @ }}",
+            "imageWidth" : "",
+            "imageHeight" : "",
+            "linkUrlTemplate" : "{{ @ }}",
+            "linkTextTemplate" : "{{ @ }}",
+            "linkTitleTemplate" : "{{ @ }}",
+            "linkOpenInNewTab" : true,
+            "name" : "customer_name",
+            "type" : "string",
+            "displayAs" : "string",
+            "order" : 100011,
+            "title" : "customer_name",
+            "allowSearch" : false,
+            "alignContent" : "left",
+            "allowHTML" : false,
+            "highlightLinks" : false,
+            "useMonospaceFont" : false,
+            "preserveWhitespace" : false
+          }, {
+            "booleanValues" : [ "false", "true" ],
+            "imageUrlTemplate" : "{{ @ }}",
+            "imageTitleTemplate" : "{{ @ }}",
+            "imageWidth" : "",
+            "imageHeight" : "",
+            "linkUrlTemplate" : "{{ @ }}",
+            "linkTextTemplate" : "{{ @ }}",
+            "linkTitleTemplate" : "{{ @ }}",
+            "linkOpenInNewTab" : true,
+            "name" : "birth_date",
+            "type" : "string",
+            "displayAs" : "string",
+            "order" : 100012,
+            "title" : "birth_date",
+            "allowSearch" : false,
+            "alignContent" : "left",
+            "allowHTML" : false,
+            "highlightLinks" : false,
+            "useMonospaceFont" : false,
+            "preserveWhitespace" : false
+          } ],
+          "allowHTMLByDefault" : false,
+          "itemsPerPage" : 25,
+          "paginationSize" : "default",
+          "condensed" : true,
+          "withRowNumber" : false,
+          "frame" : {
+            "title" : "Policies for Frauds",
+            "showTitle" : true
+          }
+        }
+      },
+      "position" : {
+        "x" : 0,
+        "y" : 26,
+        "width" : 3,
+        "height" : 6
+      }
+    } ],
+    "pageType" : "PAGE_TYPE_CANVAS"
   }, {
     "name" : "731880f6",
     "displayName" : "Agent Dashboard",
@@ -2055,7 +2336,8 @@
         "width" : 1,
         "height" : 6
       }
-    } ]
+    } ],
+    "pageType" : "PAGE_TYPE_CANVAS"
   } ],
   "uiSettings" : {
     "locale" : "en-GB"
