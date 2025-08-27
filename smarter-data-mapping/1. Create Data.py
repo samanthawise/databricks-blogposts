@@ -226,11 +226,8 @@ display(combined_df_with_id)
 # COMMAND ----------
 
 # DBTITLE 1,Save DataFrame to Delta Table in Unity Catalog
-table_name = "raw_supplier_dummy_data"
-
 # Save the DataFrame to Unity Catalog as a Delta table
-table_path = f"{catalog}.{db}.{table_name}"
-combined_df_with_id.write.format("delta").mode("overwrite").saveAsTable(table_path)
+combined_df_with_id.write.format("delta").mode("overwrite").saveAsTable(f"{catalog}.{db}.{raw_table_name}")
 
 # COMMAND ----------
 
@@ -239,18 +236,16 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import concat_ws, col
 
 # Load the CSV file into a DataFrame with headers
-r_df = spark.read.table(table_path)
+r_df = spark.read.table(f"{catalog}.{db}.{raw_table_name}")
 
 # Add a new column by concatenating existing columns and filter rows based on conditions
 df = r_df.withColumn("final_taxonomy_column", concat_ws("|", 'REGION_NAME', 'ROUTE_NAME', 'DELIVERY_UNIT_NAME'))
 df = df.filter(col("SOURCE_DIM") == "Finance_System")
 
-raw_delta_table_path = f"{catalog}.{db}.{raw_table_name}"
-conformed_delta_table_path = f"{catalog}.{db}.{conformed_table_name}"
-
 # Write the DataFrame to a Delta table, overwriting any existing data
-r_df.write.format("delta").mode("overwrite").saveAsTable(cleaned_table_name)
-df.write.format("delta").mode("overwrite").saveAsTable(conformed_table_name)
+df.write.format("delta").mode("overwrite").saveAsTable(f"{catalog}.{db}.{conformed_table_name}")
+
+# COMMAND ----------
 
 # Display the DataFrame
 display(df)

@@ -23,13 +23,8 @@
 # COMMAND ----------
 
 # DBTITLE 1,Query Cleaned Data
-catalog = catalog
-schema = db
-table_name = "raw_supplier_dummy_data"
-                     
 # Read the DataFrame to Unity Catalog as a Delta table
-table_path = f"{catalog}.{schema}.{table_name}"
-clean_df = spark.table(table_path)
+clean_df = spark.table(f"{catalog}.{db}.{raw_table_name}")
 display(clean_df)
 
 # COMMAND ----------
@@ -65,7 +60,3 @@ display(filtered_df)
 
 # Save the DataFrame with regex results as a Delta table
 regex_df.write.format("delta").option("mergeSchema", "true").option("overwriteSchema", "true").mode("overwrite").saveAsTable(f"{catalog}.{db}.{regex_table_name}")
-
-# COMMAND ----------
-
-

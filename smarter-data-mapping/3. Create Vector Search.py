@@ -31,7 +31,7 @@
 
 # DBTITLE 1,Query Cleaned Data
 sql_query = f"""
-SELECT * FROM `{catalog}`.`{db}`.`{cleaned_table_name}`
+SELECT * FROM `{catalog}`.`{db}`.`{raw_table_name}`
 """
 display(spark.sql(sql_query))
 
@@ -134,7 +134,7 @@ from pyspark.sql.functions import udf
 from pyspark.sql.types import StringType
 
 # Load the raw taxonomy table into a Spark DataFrame
-df = spark.table(f"{catalog}.{db}.{cleaned_table_name}")
+df = spark.table(f"{catalog}.{db}.{raw_table_name}")
 
 # Define a user-defined function (UDF) for performing similarity search
 @udf(StringType())

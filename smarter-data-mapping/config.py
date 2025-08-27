@@ -15,16 +15,16 @@ VECTOR_SEARCH_ENDPOINT_NAME="taxonomy_blog_endpoint"
 # catalog specifies the name of the Databricks catalog where the data is stored.
 catalog = "main"
 # db specifies the name of the database within the catalog.
-db = "taxonomy_blog"
-# cleaned_table_name is the name of the table containing the raw data that needs to be cleaned or processed.
-cleaned_table_name = "raw_supplier_dummy_taxonomy_data"
+db = "default"
+# raw_table_name is the name of the table containing the raw data that needs to be cleaned or processed.
+raw_table_name = "raw_supplier_dummy_taxonomy_data"
 # conformed_table_name is the name of the table where the cleaned and conformed data will be stored.
 conformed_table_name = "conformed_supplier_dummy_taxonomy_data"
 
 # source_table_fullname combines catalog, db, and conformed_table_name to specify the full path to the source table.
 source_table_fullname = f"{catalog}.{db}.{conformed_table_name}"
 # vs_index_fullname combines catalog, db, and cleaned_table_name to specify the full path to the vector search index.
-vs_index_fullname = f"{catalog}.{db}.{cleaned_table_name}_vs_index"
+vs_index_fullname = f"{catalog}.{db}.{conformed_table_name}_vs_index"
 
 # embedding_model_endpoint_name is the name of the embedding model endpoint used for generating embeddings.
 embedding_model_endpoint_name = 'databricks-gte-large-en'
