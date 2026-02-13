@@ -81,8 +81,8 @@ ENVIRONMENT = "dev"                     # Environment: dev, prod, demo
 
 3. **DO NOT** change endpoint names unless you have specific requirements:
    - `WHISPER_ENDPOINT_NAME = "whisper-v3-large-pytorch"`
-   - `LLM_ENDPOINT_REASONING = "databricks-claude-3-7-sonnet"`
-   - `LLM_ENDPOINT_FAST = "databricks-meta-llama-3-3-70b-instruct"`
+   - `LLM_ENDPOINT_REASONING = "databricks-claude-sonnet-4-5"`
+   - `LLM_ENDPOINT_FAST = "databricks-gpt-5-nano"`
 
 ### Step 1.3: Initialize Environment
 
@@ -326,7 +326,7 @@ sentiment: Neutral
 mock: True
 ```
 
-**Note:** These are placeholder agents for testing. Production agents will be handled by the external Agent Bricks Knowledge Assistant system using LangGraph.
+**Note:** These are placeholder agents for testing. Production agents will be handled by the external Agent Bricks Knowledge Assistant system, which manages all orchestration and agentic workflows.
 
 ---
 
@@ -619,7 +619,7 @@ After successful deployment:
 
 1. **Integrate Agent Bricks:**
    - Register UC Functions with Agent Bricks
-   - Configure LangGraph multi-agent workflows
+   - Agent Bricks will handle all orchestration and workflows
    - Deploy Customer Service Agent
 
 2. **Customize for Your Use Case:**

@@ -2,7 +2,7 @@
 
 A comprehensive Databricks solution accelerator that transforms call center audio recordings into actionable insights using **Lakeflow Spark Declarative Pipelines (SDP)**, **Whisper transcription**, **AI Functions**, and **Agent Bricks integration**.
 
-This unified solution combines the best patterns from two prior accelerators:
+This solution combines the best patterns from two prior accelerators:
 - **Excellent documentation and customer-ready packaging**
 - **Production-grade Whisper endpoint transcription**
 - **Comprehensive batch AI analysis**
@@ -76,7 +76,7 @@ This unified solution combines the best patterns from two prior accelerators:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      🥉 BRONZE LAYER                             │
+│                  BRONZE LAYER                                   │
 │  Auto Loader (cloudFiles) → Incremental Audio File Ingestion    │
 │  - Detects new .wav/.mp3/.flac files                            │
 │  - Binary file format ingestion                                 │
@@ -84,7 +84,7 @@ This unified solution combines the best patterns from two prior accelerators:
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                      🥈 SILVER LAYER                             │
+│                  SILVER LAYER                                   │
 │  Audio Transcription + Metadata Extraction                      │
 │  - Parse filename → call_id, agent_id, datetime                 │
 │  - Transcribe via Whisper endpoint (ai_query)                   │
@@ -92,7 +92,7 @@ This unified solution combines the best patterns from two prior accelerators:
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                      🥇 GOLD LAYER                              │ 
+│                  GOLD LAYER                                     │ 
 │  Comprehensive AI Enrichment with Batch AI Functions            │
 │  ✓ Sentiment Analysis          ✓ Call Summarization             │
 │  ✓ Call Reason Classification  ✓ Named Entity Recognition       │
@@ -111,9 +111,9 @@ This unified solution combines the best patterns from two prior accelerators:
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│              📊 Dashboards & 🤖 Agent Bricks Integration         │
+│                  Dashboards & Agent Bricks Integration          │
 │  - Real-time analytics dashboards                               │
-│  - Multi-agent workflows with LangGraph                         │
+│  - Multi-agent workflows with Agent Bricks                      │
 │  - Customer service automation                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -127,8 +127,8 @@ Audio File → Whisper Transcription → AI Enrichment → Insights
 
 **Endpoints Used:**
 - **Whisper**: `whisper-v3-large-pytorch` (Model Serving endpoint)
-- **LLM Reasoning**: `databricks-claude-3-7-sonnet` (compliance, email generation)
-- **LLM Fast**: `databricks-meta-llama-3-3-70b-instruct` (classification, sentiment)
+- **LLM Reasoning**: `databricks-claude-sonnet-4-5` (compliance, email generation)
+- **LLM Fast**: `databricks-gpt-5-nano` (classification, sentiment)
 
 ---
 
@@ -268,8 +268,8 @@ Configure AI endpoints in `config/config.py`:
 WHISPER_ENDPOINT_NAME = "whisper-v3-large-pytorch"
 
 # Foundation Model endpoints for AI Functions
-LLM_ENDPOINT_REASONING = "databricks-claude-3-7-sonnet"  # Complex reasoning
-LLM_ENDPOINT_FAST = "databricks-meta-llama-3-3-70b-instruct"  # Fast operations
+LLM_ENDPOINT_REASONING = "databricks-claude-sonnet-4-5"  # Complex reasoning
+LLM_ENDPOINT_FAST = "databricks-gpt-5-nano"  # Fast operations
 ```
 
 ### Lookup Tables
@@ -285,7 +285,7 @@ Both tables can be customized in `setup/00-setup.py`.
 
 ## 🤖 Agent Integration with Agent Bricks
 
-This solution is designed for integration with **Agent Bricks Knowledge Assistant**, an external multi-agent system built with LangGraph.
+This solution is designed for integration with **Agent Bricks Knowledge Assistant**, an external multi-agent system that handles all orchestration and agentic workflows.
 
 ### UC Functions for Agents
 
@@ -303,12 +303,14 @@ This solution is designed for integration with **Agent Bricks Knowledge Assistan
 ### Agent Architecture
 
 ```
-User Query → Supervisor Agent → Specialized Agents → UC Functions → Gold Table
-                                ↓
-                    - Customer Service Agent
-                    - Policy Q&A Agent (with RAG)
-                    - Compliance Agent
+User Query → Agent Bricks → Specialized Agents → UC Functions → Gold Table
+                              ↓
+                  - Customer Service Agent
+                  - Policy Q&A Agent (with RAG)
+                  - Compliance Agent
 ```
+
+**Note:** Agent Bricks handles all agent orchestration, tool routing, and conversation management. This solution provides the data layer via UC Functions.
 
 ### Mock Agents for Testing
 

@@ -67,8 +67,8 @@ sample_data_path = f"/Volumes/{CATALOG}/{SCHEMA}/{VOLUME}/{SAMPLE_DATA_DIR}/"
 WHISPER_ENDPOINT_NAME = "whisper-v3-large-pytorch"
 
 # Foundation Model endpoints for AI Functions
-LLM_ENDPOINT_REASONING = "databricks-claude-3-7-sonnet"  # For complex reasoning (compliance, email generation)
-LLM_ENDPOINT_FAST = "databricks-meta-llama-3-3-70b-instruct"  # For fast operations (classification, sentiment)
+LLM_ENDPOINT_REASONING = "databricks-claude-sonnet-4-5"  # For complex reasoning (compliance, email generation)
+LLM_ENDPOINT_FAST = "databricks-gpt-5-nano"  # For fast operations (classification, sentiment)
 
 # Agent integration (external Agent Bricks system)
 AGENT_BRICKS_ENDPOINT = None  # To be configured when Agent Bricks is deployed

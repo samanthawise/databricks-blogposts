@@ -5,7 +5,7 @@
 # MAGIC This notebook creates simple mock agent endpoints for testing and demonstration purposes.
 # MAGIC
 # MAGIC **Important**: These are NOT production agents. Real agent functionality will be handled by
-# MAGIC the external **Agent Bricks Knowledge Assistant** system using LangGraph multi-agent workflows.
+# MAGIC the external **Agent Bricks Knowledge Assistant** system using Agent Bricks multi-agent workflows.
 # MAGIC
 # MAGIC **Purpose**:
 # MAGIC - Provide placeholder endpoints for testing UC Functions
@@ -32,7 +32,7 @@ class MockCustomerServiceAgent:
     Mock Customer Service Agent for testing.
 
     In production, this would be replaced by Agent Bricks Customer Service Agent
-    that uses LangGraph for agentic reasoning and UC Functions for data retrieval.
+    that uses Agent Bricks for agentic reasoning and UC Functions for data retrieval.
     """
 
     def __init__(self, catalog: str, schema: str):
@@ -53,7 +53,7 @@ class MockCustomerServiceAgent:
         """
         # In production, this would:
         # 1. Use UC Functions to retrieve customer data
-        # 2. Use LangGraph agent for reasoning
+        # 2. Use Agent Bricks agent for reasoning
         # 3. Generate personalized response
 
         # Mock response
@@ -257,7 +257,7 @@ class MockSupervisorAgent:
     """
     Mock Supervisor Agent for testing multi-agent coordination.
 
-    In production, this would be the LangGraph supervisor that:
+    In production, this would be the Agent Bricks supervisor that:
     - Routes queries to specialized agents
     - Coordinates multi-agent workflows
     - Aggregates responses
@@ -362,7 +362,7 @@ print("\n" + "=" * 80)
 # MAGIC ```
 # MAGIC ┌─────────────────────────────────────────────────────────────┐
 # MAGIC │                    Agent Bricks System                       │
-# MAGIC │                  (External LangGraph Agents)                 │
+# MAGIC │                  (External Agent Bricks Agents)                 │
 # MAGIC └─────────────────────────────────────────────────────────────┘
 # MAGIC                              │
 # MAGIC                              │ Uses UC Functions
@@ -413,11 +413,11 @@ print("\n" + "=" * 80)
 # MAGIC
 # MAGIC 1. **Deploy UC Functions** (completed in `03-create-uc-tools.py`)
 # MAGIC 2. **Register UC Functions with Agent Bricks**
-# MAGIC 3. **Configure Agent Workflows in LangGraph**
+# MAGIC 3. **Configure Agent Workflows in Agent Bricks**
 # MAGIC 4. **Deploy Agent Bricks System**
 # MAGIC 5. **Test End-to-End Agent Flows**
 # MAGIC
-# MAGIC ### Example LangGraph Agent Configuration
+# MAGIC ### Example Agent Bricks Agent Configuration
 # MAGIC
 # MAGIC ```python
 # MAGIC from langgraph.prebuilt import create_agent_executor
@@ -460,13 +460,13 @@ print("""
 
 Production Implementation:
 - Agent functionality will be handled by external Agent Bricks Knowledge Assistant
-- Multi-agent workflows implemented with LangGraph
+- Multi-agent workflows implemented with Agent Bricks
 - UC Functions provide the data access layer
 - Vector Search RAG for policy documents
 
 Next Steps:
 1. Deploy UC Functions (03-create-uc-tools.py) ✓
-2. Set up Agent Bricks system with LangGraph
+2. Set up Agent Bricks system with Agent Bricks
 3. Register UC Functions as agent tools
 4. Configure multi-agent workflows
 5. Test end-to-end agent integration
