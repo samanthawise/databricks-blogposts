@@ -1,0 +1,251 @@
+# Databricks Workflow: AI-Powered Call Center Analytics
+# Complete end-to-end orchestration of the call center analytics pipeline
+
+name: call-center-analytics-pipeline
+
+# Job-level configuration
+job_clusters:
+  - job_cluster_key: main_cluster
+    new_cluster:
+      spark_version: 14.3.x-scala2.12
+      node_type_id: i3.xlarge
+      num_workers: 2
+      autoscale:
+        min_workers: 1
+        max_workers: 4
+      spark_conf:
+        spark.databricks.delta.optimizeWrite.enabled: "true"
+        spark.databricks.delta.autoCompact.enabled: "true"
+      custom_tags:
+        project: call-center-analytics
+        environment: production
+
+# Pipeline tasks
+tasks:
+  # Task 1: Setup - Initialize catalog, schema, volumes, lookup tables
+  - task_key: setup
+    job_cluster_key: main_cluster
+    notebook_task:
+      notebook_path: /Workspace/Users/<USERNAME>/2025-06 automated-claims-processing/setup/00-setup.py
+      base_parameters:
+        reset_all_data: "false"
+    timeout_seconds: 600
+    libraries:
+      - pypi:
+          package: faker>=20.0.0
+
+  # Task 2: Deploy Whisper Endpoint (conditional - skip if already exists)
+  - task_key: deploy_whisper_endpoint
+    depends_on:
+      - task_key: setup
+    job_cluster_key: main_cluster
+    notebook_task:
+      notebook_path: /Workspace/Users/<USERNAME>/2025-06 automated-claims-processing/setup/01-deploy-whisper-endpoint.py
+      base_parameters:
+        action: use_existing  # Set to "recreate" to force redeployment
+    timeout_seconds: 1800  # 30 minutes for endpoint deployment
+    libraries:
+      - pypi:
+          package: databricks-sdk
+
+  # Task 3: Run Lakeflow SDP Pipeline (Bronze → Silver → Gold)
+  - task_key: bronze_silver_gold_pipeline
+    depends_on:
+      - task_key: deploy_whisper_endpoint
+    job_cluster_key: main_cluster
+    notebook_task:
+      notebook_path: /Workspace/Users/<USERNAME>/2025-06 automated-claims-processing/pipeline/02-sdp-bronze-silver-gold.py
+    timeout_seconds: 3600  # 1 hour for full pipeline
+    retry_on_timeout: true
+    max_retries: 2
+    min_retry_interval_millis: 300000  # 5 minutes
+    libraries:
+      - pypi:
+          package: mutagen>=1.47.0
+
+  # Task 4: Create UC Functions for Agent Integration
+  - task_key: create_uc_functions
+    depends_on:
+      - task_key: bronze_silver_gold_pipeline
+    job_cluster_key: main_cluster
+    notebook_task:
+      notebook_path: /Workspace/Users/<USERNAME>/2025-06 automated-claims-processing/tools/03-create-uc-tools.py
+      base_parameters:
+        recreate_uc_tools: "false"
+    timeout_seconds: 300
+
+  # Task 5: Prepare Dashboard Data
+  - task_key: prepare_dashboard_data
+    depends_on:
+      - task_key: bronze_silver_gold_pipeline
+    job_cluster_key: main_cluster
+    notebook_task:
+      notebook_path: /Workspace/Users/<USERNAME>/2025-06 automated-claims-processing/notebooks/05-prepare-dashboard-data.py
+    timeout_seconds: 600
+
+# Workflow triggers
+triggers:
+  # File arrival trigger - runs when new audio files are uploaded
+  - file_arrival:
+      url: /Volumes/<CATALOG>/<SCHEMA>/<VOLUME>/raw_recordings
+      min_time_between_triggers_seconds: 300  # 5 minutes cooldown
+
+# Schedule (optional - comment out if using file trigger only)
+schedule:
+  quartz_cron_expression: "0 0 2 * * ?"  # Daily at 2 AM UTC
+  timezone_id: "UTC"
+  pause_status: PAUSED  # Set to UNPAUSED to enable
+
+# Email notifications
+email_notifications:
+  on_start:
+    - <DATA_ENGINEERING_EMAIL>
+  on_success:
+    - <DATA_ENGINEERING_EMAIL>
+  on_failure:
+    - <DATA_ENGINEERING_EMAIL>
+    - <ONCALL_EMAIL>
+
+# Workflow-level settings
+max_concurrent_runs: 1  # Prevent concurrent pipeline runs
+timeout_seconds: 7200  # 2 hours for entire workflow
+
+# Parameters (can be overridden at runtime)
+parameters:
+  - name: catalog
+    default: call_center_analytics
+  - name: schema
+    default: main
+  - name: volume
+    default: call_center_data
+
+# Tags for organization
+tags:
+  project: call-center-analytics
+  environment: production
+  data_classification: sensitive
+
+# Access control
+access_control_list:
+  - user_name: <DATA_ENGINEERING_TEAM_EMAIL>
+    permission_level: CAN_MANAGE
+  - group_name: data-engineers
+    permission_level: CAN_MANAGE
+  - group_name: data-scientists
+    permission_level: CAN_VIEW
+
+---
+
+# DEPLOYMENT INSTRUCTIONS
+# =====================
+#
+# This YAML file defines a Databricks Workflow for the Call Center Analytics pipeline.
+#
+# BEFORE DEPLOYMENT:
+# 1. Replace all placeholders with your actual values:
+#    - <USERNAME>: Your Databricks workspace username
+#    - <CATALOG>: Your Unity Catalog catalog name (default: call_center_analytics)
+#    - <SCHEMA>: Your schema name (default: main)
+#    - <VOLUME>: Your volume name (default: call_center_data)
+#    - <DATA_ENGINEERING_EMAIL>: Email for notifications
+#    - <ONCALL_EMAIL>: Email for failure alerts
+#    - <DATA_ENGINEERING_TEAM_EMAIL>: Email for access control
+#
+# 2. Update notebook paths if you've imported to a different location
+#
+# 3. Adjust cluster configuration based on your workload:
+#    - node_type_id: Change based on cloud provider and region
+#    - num_workers: Adjust based on expected data volume
+#
+# DEPLOYMENT OPTIONS:
+#
+# Option 1: UI Deployment
+# -----------------------
+# 1. Go to Databricks Workspace → Workflows
+# 2. Click "Create Job"
+# 3. Click "JSON" tab
+# 4. Paste this YAML (converted to JSON)
+# 5. Update all placeholders
+# 6. Click "Create"
+#
+# Option 2: Databricks CLI
+# ------------------------
+# 1. Install Databricks CLI: pip install databricks-cli
+# 2. Configure authentication: databricks configure --token
+# 3. Create workflow: databricks jobs create --json-file call-center-analytics-workflow.json
+#
+# Option 3: Databricks SDK (Python)
+# ----------------------------------
+# from databricks.sdk import WorkspaceClient
+# from databricks.sdk.service import jobs
+# import yaml
+#
+# w = WorkspaceClient()
+#
+# with open('call-center-analytics-workflow.yml') as f:
+#     workflow_config = yaml.safe_load(f)
+#
+# # Convert YAML to Jobs API format and create
+# job = w.jobs.create(**workflow_config)
+# print(f"Created workflow: {job.job_id}")
+#
+# TRIGGER CONFIGURATION:
+#
+# File Arrival Trigger:
+# - Automatically runs when new audio files are uploaded to raw_recordings volume
+# - 5-minute cooldown between triggers to batch multiple file uploads
+# - Ideal for continuous processing
+#
+# Scheduled Trigger:
+# - Daily at 2 AM UTC (configurable)
+# - Currently PAUSED - set to UNPAUSED to enable
+# - Ideal for batch processing of accumulated files
+#
+# Manual Trigger:
+# - Run on-demand from Databricks UI or via API
+# - Ideal for testing and ad-hoc processing
+#
+# MONITORING:
+#
+# - Workflow runs appear in Databricks UI → Workflows → [Workflow Name] → Runs
+# - Email notifications sent on start, success, and failure
+# - Each task shows logs, metrics, and execution time
+# - Failed tasks can be restarted individually
+#
+# COST OPTIMIZATION:
+#
+# - Autoscaling cluster (1-4 workers) adapts to workload
+# - Whisper endpoint has scale-to-zero enabled
+# - max_concurrent_runs: 1 prevents overlapping expensive runs
+# - File arrival trigger batches multiple uploads
+#
+# TROUBLESHOOTING:
+#
+# Issue: Workflow fails on deploy_whisper_endpoint
+# Solution: Set base_parameters.action = "use_existing" to skip deployment
+#
+# Issue: Pipeline times out
+# Solution: Increase timeout_seconds or break into smaller tasks
+#
+# Issue: File arrival trigger not working
+# Solution: Verify volume path is correct and files are being uploaded
+#
+# Issue: Notifications not received
+# Solution: Check email addresses and workspace SMTP configuration
+#
+# PRODUCTION CHECKLIST:
+#
+# [ ] All placeholders replaced with production values
+# [ ] Cluster configuration optimized for workload
+# [ ] Email notifications configured
+# [ ] Access control list updated
+# [ ] File trigger or schedule enabled
+# [ ] Test run completed successfully
+# [ ] Monitoring and alerting set up
+# [ ] Documentation updated with workflow ID
+#
+# SUPPORT:
+#
+# - Databricks Workflows Documentation: https://docs.databricks.com/workflows/
+# - Databricks CLI: https://docs.databricks.com/dev-tools/cli/
+# - Databricks SDK: https://docs.databricks.com/dev-tools/sdk-python.html
