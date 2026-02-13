@@ -88,9 +88,7 @@ else:
 # DBTITLE 1,Deploy Whisper Endpoint
 if not endpoint_exists_flag:
     print(f"Deploying Whisper endpoint: {ENDPOINT_NAME}")
-    print("This may take 15-30 minutes...")
-    print("\nNote: Secure egress gateway initialization can be slow.")
-    print("If deployment times out, the endpoint may still be creating in the background.")
+    print("This may take 10-15 minutes...")
 
     # Configure endpoint
     config = EndpointCoreConfigInput.from_dict({
@@ -106,127 +104,32 @@ if not endpoint_exists_flag:
         ]
     })
 
-    # Create endpoint (without waiting initially)
+    # Create and wait for endpoint
     try:
-        print(f"\nInitiating endpoint creation...")
-        endpoint_response = w.serving_endpoints.create(
+        model_details = w.serving_endpoints.create_and_wait(
             name=ENDPOINT_NAME,
-            config=config
+            config=config,
+            timeout=timedelta(minutes=30)
         )
-        print(f"✓ Endpoint creation initiated: {endpoint_response.name}")
-        print(f"  Current state: {endpoint_response.state}")
-        print(f"\n⏳ Endpoint is being created in the background...")
-        print(f"   This process can take 15-30 minutes.")
-        print(f"   You can continue to the next cell to monitor progress.")
-
+        print(f"\n✓ Endpoint '{ENDPOINT_NAME}' deployed successfully!")
+        print(f"   Details: {model_details}")
     except Exception as e:
-        error_msg = str(e)
-
-        # Check if endpoint already exists (common race condition)
-        if "already exists" in error_msg.lower():
-            print(f"\n⚠️  Endpoint '{ENDPOINT_NAME}' already exists (possibly from previous attempt)")
-            print(f"   Checking current status...")
-            endpoint_exists_flag = True
-        else:
-            print(f"\n✗ Error creating endpoint: {e}")
-            print(f"\nTroubleshooting steps:")
-            print(f"1. Check if endpoint is already being created in Databricks UI → Serving")
-            print(f"2. If so, wait for it to complete and run the next cell to check status")
-            print(f"3. If error persists, contact Databricks support")
-            raise e
+        print(f"\n✗ Error deploying endpoint: {e}")
+        raise e
 else:
     print(f"Skipping deployment - using existing endpoint '{ENDPOINT_NAME}'")
 
 # COMMAND ----------
 
-# DBTITLE 1,Wait for Endpoint to be Ready (or Check Status)
-print(f"Checking status of endpoint '{ENDPOINT_NAME}'...")
-print("=" * 60)
+# DBTITLE 1,Wait for Endpoint to be Ready
+print(f"Ensuring endpoint '{ENDPOINT_NAME}' is ready...")
 
-# First check if endpoint exists
-if not endpoint_exists(ENDPOINT_NAME):
-    print(f"⚠️  Endpoint '{ENDPOINT_NAME}' not found.")
-    print(f"   Please ensure the previous cell ran successfully.")
-    print(f"   Or check Databricks UI → Serving for endpoint status.")
-else:
-    # Get current status
-    current_status = get_endpoint_status(ENDPOINT_NAME)
-    print(f"Endpoint: {ENDPOINT_NAME}")
-    print(f"Status: {current_status}")
-    print("=" * 60)
-
-    # Check if ready
-    try:
-        from databricks.sdk.service.serving import EndpointStateReady
-        endpoint_info = w.serving_endpoints.get(ENDPOINT_NAME)
-
-        if endpoint_info.state and endpoint_info.state.ready == EndpointStateReady.READY:
-            print(f"\n✅ Endpoint '{ENDPOINT_NAME}' is READY for inference!")
-        else:
-            print(f"\n⏳ Endpoint is still deploying...")
-            print(f"   Current state: {endpoint_info.state}")
-            print(f"\n   Options:")
-            print(f"   1. Wait and re-run this cell in 5-10 minutes")
-            print(f"   2. Check progress in Databricks UI → Serving → {ENDPOINT_NAME}")
-            print(f"   3. Use the helper function below to wait:")
-            print(f"\n   # Wait for endpoint (can take 15-30 minutes)")
-            print(f"   wait_for_endpoint_to_be_ready('{ENDPOINT_NAME}', timeout_minutes=45)")
-
-    except Exception as e:
-        print(f"\n⚠️  Error checking endpoint: {e}")
-        print(f"\nIf you see 'Secure egress gateway start up timed out':")
-        print(f"  - The endpoint may still be creating in the background")
-        print(f"  - Check Databricks UI → Serving → {ENDPOINT_NAME}")
-        print(f"  - Wait 10-15 minutes and re-run this cell")
-        print(f"  - If issue persists after 30 minutes, contact Databricks support")
-
-# COMMAND ----------
-
-# DBTITLE 1,(Optional) Wait Actively for Endpoint
-# Run this cell only if you want to actively wait for endpoint to be ready
-# This can take 15-30 minutes for first-time deployment
-
-WAIT_FOR_READY = False  # Set to True to wait actively
-
-if WAIT_FOR_READY:
-    print("Actively waiting for endpoint to be ready...")
-    print("This may take 15-30 minutes. You can safely interrupt and check status later.\n")
-
-    try:
-        import time
-        from databricks.sdk.service.serving import EndpointStateReady
-
-        max_wait_minutes = 45
-        check_interval_seconds = 30
-        elapsed_minutes = 0
-
-        while elapsed_minutes < max_wait_minutes:
-            try:
-                endpoint = w.serving_endpoints.get(ENDPOINT_NAME)
-
-                if endpoint.state and endpoint.state.ready == EndpointStateReady.READY:
-                    print(f"\n✅ Endpoint is READY! (took ~{elapsed_minutes} minutes)")
-                    break
-
-                print(f"[{elapsed_minutes} min] Status: {endpoint.state} - Still deploying...")
-                time.sleep(check_interval_seconds)
-                elapsed_minutes += check_interval_seconds / 60
-
-            except Exception as e:
-                print(f"[{elapsed_minutes} min] Error checking status: {e}")
-                print("Endpoint may still be initializing. Waiting...")
-                time.sleep(check_interval_seconds)
-                elapsed_minutes += check_interval_seconds / 60
-
-        if elapsed_minutes >= max_wait_minutes:
-            print(f"\n⚠️  Timeout after {max_wait_minutes} minutes.")
-            print("Endpoint may still be deploying. Check Databricks UI → Serving")
-
-    except KeyboardInterrupt:
-        print("\n⚠️  Wait interrupted. Endpoint continues deploying in background.")
-        print("Re-run previous cell to check current status.")
-else:
-    print("Skipping active wait. Run previous cell to check endpoint status.")
+try:
+    wait_for_endpoint_to_be_ready(ENDPOINT_NAME, timeout_minutes=30)
+    print(f"\n✓ Endpoint '{ENDPOINT_NAME}' is ready for inference!")
+except Exception as e:
+    print(f"\n✗ Error waiting for endpoint: {e}")
+    raise e
 
 # COMMAND ----------
 
