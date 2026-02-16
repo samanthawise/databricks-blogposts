@@ -29,6 +29,7 @@
 # COMMAND ----------
 
 # DBTITLE 1,Endpoint Configuration
+from datetime import timedelta
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.serving import EndpointCoreConfigInput
 

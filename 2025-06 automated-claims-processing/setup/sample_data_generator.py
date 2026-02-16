@@ -4,22 +4,21 @@
 # MAGIC
 # MAGIC This notebook generates synthetic call center data for testing and demonstration:
 # MAGIC - 50 synthetic call scenarios with customer metadata
-# MAGIC - Realistic call transcripts
-# MAGIC - Sample audio file placeholders (for testing the pipeline)
-# MAGIC - Saves data to Unity Catalog volumes and tables
+# MAGIC - Realistic call transcripts (natural conversation format without speaker labels)
+# MAGIC - Saves data to Unity Catalog tables
 # MAGIC
-# MAGIC **Use Case:** Demo and testing the Lakeflow SDP pipeline without real customer data
-
-# COMMAND ----------
-
-# DBTITLE 1,Import Configuration
-# MAGIC %run ../config/config
+# MAGIC **Use Case:** Demo and testing the claims processing pipeline without real customer data
 
 # COMMAND ----------
 
 # DBTITLE 1,Install Dependencies (if needed)
 # MAGIC %pip install -U --quiet faker
 # MAGIC dbutils.library.restartPython()
+
+# COMMAND ----------
+
+# DBTITLE 1,Import Configuration
+# MAGIC %run ../config/config
 
 # COMMAND ----------
 
@@ -155,27 +154,25 @@ def generate_transcript(customer_name, policy_number, reason_for_call, sentiment
         customer_end = "Yes, that's clear. Thank you for explaining."
         closing = "You're welcome! If anything else comes up, feel free to reach out. Take care!"
 
-    # Assemble transcript
+    # Assemble transcript (no speaker labels, natural flowing conversation)
     transcript_parts = [
-        f"Agent: {greeting}",
-        f"Customer: {intro}",
-        f"Agent: {verification}",
-        f"Customer: {verification_response}",
+        greeting,
+        intro,
+        verification,
+        verification_response,
     ]
 
-    for line in discussion:
-        speaker = "Agent" if transcript_parts[-1].startswith("Customer") else "Customer"
-        transcript_parts.append(f"{speaker}: {line}")
+    transcript_parts.extend(discussion)
 
     transcript_parts.extend([
-        f"Agent: {resolution}",
-        f"Customer: {customer_end}",
-        f"Agent: {closing}",
-        "Customer: Goodbye.",
-        "Agent: Goodbye!"
+        resolution,
+        customer_end,
+        closing,
+        "Goodbye.",
+        "Goodbye!"
     ])
 
-    return "\n\n".join(transcript_parts)
+    return " ".join(transcript_parts)
 
 # COMMAND ----------
 
@@ -259,45 +256,6 @@ print(f"✓ Saved synthetic call data to table: {CATALOG}.{SCHEMA}.synthetic_cal
 
 # COMMAND ----------
 
-# DBTITLE 1,Create Sample Audio File Placeholders
-
-# Create placeholder audio files (empty files with correct names)
-# In a real scenario, you would generate actual audio or use TTS
-
-print(f"Creating {NUM_CALLS} placeholder audio files...")
-
-for row in df_calls.select("filename", "transcript", "duration_seconds").collect():
-    filename = row['filename']
-    transcript = row['transcript']
-    duration = row['duration_seconds']
-
-    # Create a simple text file as placeholder
-    # In production, this would be actual audio (WAV/MP3)
-    file_path = f"{raw_audio_path}{filename}"
-
-    # Write transcript as placeholder (for demo purposes)
-    # Real implementation would write actual audio bytes
-    with open(file_path.replace("/Volumes/", "/Volumes/"), "w") as f:
-        f.write(f"# PLACEHOLDER AUDIO FILE\n")
-        f.write(f"# Duration: {duration} seconds\n")
-        f.write(f"# Filename: {filename}\n")
-        f.write(f"#\n")
-        f.write(f"# In production, this would be actual audio data.\n")
-        f.write(f"# For demo purposes, this file contains the transcript:\n")
-        f.write(f"#\n")
-        f.write(transcript)
-
-print(f"✓ Created {NUM_CALLS} placeholder audio files in: {raw_audio_path}")
-
-# Note about placeholder files
-print("\n⚠️  NOTE: These are placeholder text files, not actual audio.")
-print("   In production, you would:")
-print("   1. Record actual calls as WAV/MP3 files")
-print("   2. Use Text-to-Speech to generate synthetic audio")
-print("   3. Download sample audio files from a data source")
-
-# COMMAND ----------
-
 # DBTITLE 1,Sample Data Generation Summary
 
 print("\n" + "=" * 80)
@@ -307,16 +265,13 @@ print(f"\n✓ Generated {NUM_CALLS} synthetic call scenarios")
 print(f"  - {NUM_FRAUD_CASES} fraud cases")
 print(f"  - {NUM_HARDSHIP_CASES} financial hardship cases")
 print(f"  - {NUM_CALLS - NUM_FRAUD_CASES - NUM_HARDSHIP_CASES} general inquiries")
-print(f"\n✓ Created placeholder audio files in: {raw_audio_path}")
 print(f"✓ Saved synthetic data to table: {CATALOG}.{SCHEMA}.synthetic_call_data")
 print("\n" + "=" * 80)
 print("NEXT STEPS")
 print("=" * 80)
-print("1. Run the Lakeflow SDP pipeline: pipeline/02-sdp-bronze-silver-gold.py")
-print("2. The pipeline will:")
-print("   - Ingest audio files from volume (Bronze layer)")
-print("   - Transcribe using Whisper endpoint (Silver layer)")
-print("   - Enrich with AI analysis (Gold layer)")
+print("1. Use this synthetic data for testing and demonstration")
+print("2. The transcripts are in natural conversation format (no speaker labels)")
+print("3. Data can be used for AI analysis and enrichment pipelines")
 print("=" * 80)
 
 # COMMAND ----------
