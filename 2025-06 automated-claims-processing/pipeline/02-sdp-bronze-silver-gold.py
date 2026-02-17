@@ -1,20 +1,22 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Lakeflow Spark Declarative Pipeline: Call Center Analytics
+# MAGIC # Bronze → Silver → Gold Pipeline: Call Center Analytics
 # MAGIC
 # MAGIC This notebook implements a complete Bronze → Silver → Gold pipeline using:
-# MAGIC - **Bronze Layer**: Auto Loader for incremental audio file ingestion
+# MAGIC - **Bronze Layer**: Batch ingestion of audio files from Unity Catalog volumes
 # MAGIC - **Silver Layer**: Audio transcription using Whisper endpoint via `ai_query()`
 # MAGIC - **Gold Layer**: Comprehensive AI enrichment (sentiment, summary, classification, NER, compliance, email generation)
 # MAGIC
-# MAGIC **Architecture**: Medallion Architecture with Lakeflow Spark Declarative Pipelines (SDP)
+# MAGIC **Architecture**: Medallion Architecture with batch processing (optimized for small/medium datasets)
 # MAGIC
 # MAGIC **Key Features**:
-# MAGIC - Incremental processing with Auto Loader checkpoints
+# MAGIC - Efficient batch processing for fast execution with small datasets
 # MAGIC - Production-ready Whisper transcription via Model Serving
-# MAGIC - Batch AI functions for comprehensive call analysis
+# MAGIC - Multiple AI functions for comprehensive call analysis
 # MAGIC - Structured outputs with JSON schemas
 # MAGIC - Dynamic classification from lookup tables
+# MAGIC
+# MAGIC **Note**: For large-scale production with continuous ingestion, consider using Auto Loader streaming
 
 # COMMAND ----------
 
@@ -33,25 +35,22 @@
 from pyspark.sql import functions as F
 from pyspark.sql.types import *
 
-# Checkpoint paths for streaming
-BRONZE_CHECKPOINT = get_checkpoint_path("bronze")
-SILVER_CHECKPOINT = get_checkpoint_path("silver")
-GOLD_CHECKPOINT = get_checkpoint_path("gold")
-
-print(f"Pipeline checkpoints:")
-print(f"  Bronze: {BRONZE_CHECKPOINT}")
-print(f"  Silver: {SILVER_CHECKPOINT}")
-print(f"  Gold: {GOLD_CHECKPOINT}")
+# Note: Checkpoint paths are only needed if using streaming mode
+# Current implementation uses batch processing for better performance with small datasets
+# Uncomment below if you want to use Auto Loader streaming:
+# BRONZE_CHECKPOINT = get_checkpoint_path("bronze")
+# SILVER_CHECKPOINT = get_checkpoint_path("silver")
+# GOLD_CHECKPOINT = get_checkpoint_path("gold")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## 🥉 Bronze Layer: Ingest Raw Audio Files
 # MAGIC
-# MAGIC Uses Auto Loader (`cloudFiles`) to incrementally ingest audio files from Unity Catalog volume.
-# MAGIC - Automatically detects new files
-# MAGIC - Handles schema inference
-# MAGIC - Maintains checkpoint for exactly-once processing
+# MAGIC Batch ingestion of audio files from Unity Catalog volume.
+# MAGIC - Reads audio files as binary format
+# MAGIC - Fast processing for small to medium datasets
+# MAGIC - For large-scale continuous ingestion, consider Auto Loader streaming
 
 # COMMAND ----------
 
@@ -59,28 +58,22 @@ print(f"  Gold: {GOLD_CHECKPOINT}")
 
 print(f"Ingesting audio files from: {raw_audio_path}")
 
-# Read audio files using Auto Loader (cloud_files)
-bronze_df = (spark.readStream
-    .format("cloudFiles")
-    .option("cloudFiles.format", "binaryFile")  # Read audio as binary
-    .option("cloudFiles.schemaLocation", BRONZE_CHECKPOINT)  # Checkpoint for schema evolution
-    .option("cloudFiles.inferColumnTypes", "true")
-    .option("recursiveFileLookup", "true")  # Recursively find files
+# For small datasets, use batch reading for better performance
+# For large-scale production with many files, consider using Auto Loader streaming
+bronze_df = (spark.read
+    .format("binaryFile")
+    .option("recursiveFileLookup", "true")
     .load(raw_audio_path)
 )
 
 # Write to Bronze table
 bronze_table = f"{CATALOG}.{SCHEMA}.{BRONZE_TABLE}"
 
-(bronze_df.writeStream
-    .format("delta")
-    .outputMode("append")
-    .option("checkpointLocation", BRONZE_CHECKPOINT)
-    .option("mergeSchema", "true")
-    .trigger(availableNow=True)  # Batch-like processing for each run
-    .table(bronze_table)
-    .awaitTermination()
-)
+bronze_df.write \
+    .format("delta") \
+    .mode("append") \
+    .option("mergeSchema", "true") \
+    .saveAsTable(bronze_table)
 
 print(f"✓ Bronze layer complete: {bronze_table}")
 
@@ -117,8 +110,8 @@ else:
 
 print(f"Transcribing audio using Whisper endpoint: {WHISPER_ENDPOINT_NAME}")
 
-# Read from Bronze table
-silver_input_df = spark.readStream.table(bronze_table)
+# Read from Bronze table (batch mode for better performance with small datasets)
+silver_input_df = spark.table(bronze_table)
 
 # Parse filename metadata (call_id, agent_id, call_datetime)
 silver_input_df = parse_filename_metadata(silver_input_df)
@@ -139,10 +132,6 @@ silver_df = silver_input_df.selectExpr(
     ) as transcription"""
 )
 
-# Note: Audio duration extraction requires file system access which is not ideal in streaming
-# We'll add duration as a separate batch step or use approximate duration based on file size
-# For now, we'll add a placeholder that can be updated in post-processing
-
 silver_df = silver_df.withColumn(
     "duration_seconds",
     F.round(F.col("file_size_bytes") / 16000, 0)  # Rough estimate: ~16KB per second for compressed audio
@@ -151,15 +140,11 @@ silver_df = silver_df.withColumn(
 # Write to Silver table
 silver_table = f"{CATALOG}.{SCHEMA}.{SILVER_TABLE}"
 
-(silver_df.writeStream
-    .format("delta")
-    .outputMode("append")
-    .option("checkpointLocation", SILVER_CHECKPOINT)
-    .option("mergeSchema", "true")
-    .trigger(availableNow=True)
-    .table(silver_table)
-    .awaitTermination()
-)
+silver_df.write \
+    .format("delta") \
+    .mode("append") \
+    .option("mergeSchema", "true") \
+    .saveAsTable(silver_table)
 
 print(f"✓ Silver layer complete: {silver_table}")
 
@@ -241,13 +226,10 @@ compliance_prompt_sql = compliance_prompt_template.replace("'", "\\'").replace("
 
 print("Applying AI enrichment with multiple AI functions...")
 
-# Read from Silver table
-gold_input_df = spark.readStream.table(silver_table)
+# Read from Silver table (batch mode for better performance)
+gold_input_df = spark.table(silver_table)
 
-# Create temporary view for SQL-based AI function access
-# Note: In streaming context, we need to process this carefully
-
-# First, let's create the base transformations
+# First, create the base transformations
 gold_df = gold_input_df.selectExpr(
     "*",
     # Sentiment analysis
@@ -266,21 +248,14 @@ gold_df = gold_input_df.selectExpr(
     "ai_mask(transcription, ARRAY('person', 'phone', 'email', 'address')) AS masked_transcript"
 )
 
-# For complex ai_query functions (compliance, email), we need to do them in a second pass
-# This is because streaming has limitations with complex nested queries
-
 # Write intermediate Gold table
 gold_table_intermediate = f"{CATALOG}.{SCHEMA}.call_analysis_gold_intermediate"
 
-(gold_df.writeStream
-    .format("delta")
-    .outputMode("append")
-    .option("checkpointLocation", f"{GOLD_CHECKPOINT}_intermediate")
-    .option("mergeSchema", "true")
-    .trigger(availableNow=True)
-    .table(gold_table_intermediate)
-    .awaitTermination()
-)
+gold_df.write \
+    .format("delta") \
+    .mode("overwrite") \
+    .option("mergeSchema", "true") \
+    .saveAsTable(gold_table_intermediate)
 
 print(f"✓ Intermediate Gold layer complete: {gold_table_intermediate}")
 
