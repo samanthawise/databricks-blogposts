@@ -1,22 +1,23 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Bronze → Silver → Gold Pipeline: Call Center Analytics
+# MAGIC # Gold Layer Pipeline: AI-Powered Call Center Analytics
 # MAGIC
-# MAGIC This notebook implements a complete Bronze → Silver → Gold pipeline using:
-# MAGIC - **Bronze Layer**: Batch ingestion of audio files from Unity Catalog volumes
-# MAGIC - **Silver Layer**: Audio transcription using Whisper endpoint via `ai_query()`
+# MAGIC This notebook focuses on the **Gold Layer** enrichment using existing transcription data:
+# MAGIC - **Silver Layer**: Reads existing call transcriptions (skips audio processing for now)
 # MAGIC - **Gold Layer**: Comprehensive AI enrichment (sentiment, summary, classification, NER, compliance, email generation)
 # MAGIC
-# MAGIC **Architecture**: Medallion Architecture with batch processing (optimized for small/medium datasets)
+# MAGIC **Current Mode**: Using simulated/existing transcription data
 # MAGIC
-# MAGIC **Key Features**:
-# MAGIC - Efficient batch processing for fast execution with small datasets
-# MAGIC - Production-ready Whisper transcription via Model Serving
-# MAGIC - Multiple AI functions for comprehensive call analysis
-# MAGIC - Structured outputs with JSON schemas
-# MAGIC - Dynamic classification from lookup tables
+# MAGIC **AI Enrichments Applied**:
+# MAGIC - Sentiment analysis with `ai_analyze_sentiment()`
+# MAGIC - Call summarization with `ai_summarize()`
+# MAGIC - Dynamic classification with `ai_classify()`
+# MAGIC - Named entity recognition with `ai_extract()`
+# MAGIC - PII masking with `ai_mask()`
+# MAGIC - Compliance scoring with `ai_query()`
+# MAGIC - Follow-up email generation with structured JSON output
 # MAGIC
-# MAGIC **Note**: For large-scale production with continuous ingestion, consider using Auto Loader streaming
+# MAGIC **Note**: Bronze layer (audio ingestion) and Silver layer (transcription) can be enabled later
 
 # COMMAND ----------
 
@@ -51,53 +52,33 @@ from pyspark.sql.types import *
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 🥉 Bronze Layer: Ingest Raw Audio Files
+# MAGIC ## 🥉 Bronze Layer: Skip for Simulated Data
 # MAGIC
-# MAGIC Batch ingestion of audio files from Unity Catalog volume.
-# MAGIC - Reads audio files as binary format
-# MAGIC - Fast processing for small to medium datasets
-# MAGIC - For large-scale continuous ingestion, consider Auto Loader streaming
+# MAGIC **Note:** For this demo, we're skipping the Bronze layer (audio ingestion) and using existing transcription data.
+# MAGIC
+# MAGIC To enable Bronze layer with real audio files:
+# MAGIC 1. Upload audio files to Unity Catalog volume
+# MAGIC 2. Uncomment the Bronze layer code below
+# MAGIC 3. Configure Whisper endpoint for transcription
 
 # COMMAND ----------
 
-# DBTITLE 1,Bronze Layer - Raw Audio File Ingestion
+# DBTITLE 1,Bronze Layer - Skipped (Using Existing Data)
 
-print(f"Ingesting audio files from: {raw_audio_path}")
+print("ℹ️  Skipping Bronze layer - using existing transcription data")
+print("   To process audio files, uncomment the Bronze layer code")
 
-# For small datasets, use batch reading for better performance
-# For large-scale production with many files, consider using Auto Loader streaming
-bronze_df = (spark.read
-    .format("binaryFile")
-    .option("recursiveFileLookup", "true")
-    .load(raw_audio_path)
-)
-
-# Write to Bronze table
-bronze_table = f"{CATALOG}.{SCHEMA}.{BRONZE_TABLE}"
-
-bronze_df.write \
-    .format("delta") \
-    .mode("append") \
-    .option("mergeSchema", "true") \
-    .saveAsTable(bronze_table)
-
-print(f"✓ Bronze layer complete: {bronze_table}")
-
-# COMMAND ----------
-
-# DBTITLE 1,Verify Bronze Table
-
-bronze_count = spark.table(bronze_table).count()
-print(f"\n📊 Bronze Table Statistics:")
-print(f"  Table: {bronze_table}")
-print(f"  Total audio files: {bronze_count}")
-
-if bronze_count == 0:
-    print("\n⚠️ No audio files found. Please upload audio files to:")
-    print(f"   {raw_audio_path}")
-    dbutils.notebook.exit("No audio files to process. Exiting pipeline.")
-else:
-    display(spark.table(bronze_table).select("path", "length", "modificationTime").limit(5))
+# Uncomment below to enable Bronze layer with audio file ingestion:
+#
+# print(f"Ingesting audio files from: {raw_audio_path}")
+# bronze_df = (spark.read
+#     .format("binaryFile")
+#     .option("recursiveFileLookup", "true")
+#     .load(raw_audio_path)
+# )
+# bronze_table = f"{CATALOG}.{SCHEMA}.{BRONZE_TABLE}"
+# bronze_df.write.format("delta").mode("append").saveAsTable(bronze_table)
+# print(f"✓ Bronze layer complete: {bronze_table}")
 
 # COMMAND ----------
 
@@ -112,62 +93,48 @@ else:
 
 # COMMAND ----------
 
-# DBTITLE 1,Silver Layer - Audio Transcription
+# DBTITLE 1,Silver Layer - Load Existing Transcription Data
 
-print(f"Transcribing audio using Whisper endpoint: {WHISPER_ENDPOINT_NAME}")
+print("Loading existing transcription data...")
 
-# Read from Bronze table (batch mode for better performance with small datasets)
-silver_input_df = spark.table(bronze_table)
+# For now, skip the transcription process and use existing data
+# Read from the existing transcriptions_silver table with simulated data
+silver_table = f"{CATALOG}.{SCHEMA}.transcriptions_silver"
 
-# Parse filename metadata (call_id, agent_id, call_datetime)
-silver_input_df = parse_filename_metadata(silver_input_df)
+try:
+    silver_df = spark.table(silver_table)
+    silver_count = silver_df.count()
+    print(f"✓ Loaded {silver_count} transcriptions from: {silver_table}")
 
-# Transcribe audio using Whisper endpoint via ai_query()
-# Note: ai_query() is used within selectExpr for SQL function access
-silver_df = silver_input_df.selectExpr(
-    "path",
-    "file_name",
-    "call_id",
-    "agent_id",
-    "call_datetime",
-    "length as file_size_bytes",
-    f"""ai_query(
-        '{WHISPER_ENDPOINT_NAME}',
-        content,
-        returnType => 'STRING'
-    ) as transcription"""
-)
+    # Show sample
+    display(silver_df.select(
+        "call_id", "agent_id", "call_datetime", "transcription"
+    ).limit(3))
 
-silver_df = silver_df.withColumn(
-    "duration_seconds",
-    F.round(F.col("file_size_bytes") / 16000, 0)  # Rough estimate: ~16KB per second for compressed audio
-)
+except Exception as e:
+    print(f"✗ Could not load transcription data: {e}")
+    print(f"\nPlease ensure the table exists: {silver_table}")
+    print("You can create it by running the sample_data_generator.py notebook")
+    raise e
 
-# Write to Silver table
-silver_table = f"{CATALOG}.{SCHEMA}.{SILVER_TABLE}"
-
-silver_df.write \
-    .format("delta") \
-    .mode("append") \
-    .option("mergeSchema", "true") \
-    .saveAsTable(silver_table)
-
-print(f"✓ Silver layer complete: {silver_table}")
+# Note: To enable audio transcription with Whisper endpoint in the future:
+# 1. Uncomment the transcription code below
+# 2. Configure the Whisper endpoint properly
+# 3. Use ai_query() with the correct signature
+#
+# Example:
+# silver_df = bronze_df.selectExpr(
+#     "*",
+#     f"ai_query('{WHISPER_ENDPOINT_NAME}', content, returnType => 'STRING') as transcription"
+# )
 
 # COMMAND ----------
 
 # DBTITLE 1,Verify Silver Table
 
-silver_count = spark.table(silver_table).count()
-print(f"\n📊 Silver Table Statistics:")
+print(f"\n📊 Silver Table Ready for Gold Layer Processing")
 print(f"  Table: {silver_table}")
-print(f"  Total transcribed calls: {silver_count}")
-
-if silver_count > 0:
-    display(spark.table(silver_table).select(
-        "file_name", "call_id", "agent_id", "call_datetime",
-        "duration_seconds", "transcription"
-    ).limit(5))
+print(f"  Proceeding to Gold Layer enrichment...")
 
 # COMMAND ----------
 
