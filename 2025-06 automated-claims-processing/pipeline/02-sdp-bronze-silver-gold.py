@@ -104,25 +104,9 @@ silver_table = f"{CATALOG}.{SCHEMA}.synthetic_call_data"
 
 try:
     # Load the table
-    silver_raw = spark.table(silver_table)
-    silver_count = silver_raw.count()
+    silver_df = spark.table(silver_table)
+    silver_count = silver_df.count()
     print(f"✓ Loaded {silver_count} calls from: {silver_table}")
-
-    # Prepare Silver DataFrame with standardized column names
-    # Map 'transcript' column to 'transcription' for consistency with Gold layer
-    silver_df = silver_raw.select(
-        F.col("call_id"),
-        F.col("agent_id"),
-        F.col("call_datetime"),
-        F.col("customer_name"),
-        F.col("phone_number"),
-        F.col("policy_number"),
-        F.col("duration_seconds"),
-        F.col("transcript").alias("transcription"),  # Rename for Gold layer
-        F.col("filename"),
-        F.col("category"),
-        F.col("reason_for_call")
-    )
 
     # Show sample
     print(f"\n📊 Silver Data Sample:")

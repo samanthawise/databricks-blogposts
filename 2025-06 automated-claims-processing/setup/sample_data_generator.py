@@ -232,7 +232,7 @@ for i in range(NUM_CALLS):
         reason_for_call=reason_data['reason_for_call'],
         next_steps=reason_data['next_steps'],
         duration_seconds=duration,
-        transcript=transcript,
+        transcription=transcript,  # Renamed from 'transcript' to 'transcription'
         filename=filename,
         category=reason_data['category']
     ))
