@@ -20,6 +20,12 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Install Dependencies
+# MAGIC %pip install -U --quiet mutagen
+# MAGIC dbutils.library.restartPython()
+
+# COMMAND ----------
+
 # DBTITLE 1,Import Configuration
 # MAGIC %run ../config/config
 

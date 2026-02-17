@@ -64,7 +64,9 @@ sample_data_path = f"/Volumes/{CATALOG}/{SCHEMA}/{VOLUME}/{SAMPLE_DATA_DIR}/"
 
 # DBTITLE 1,Endpoint Configuration
 # Whisper transcription endpoint
-WHISPER_ENDPOINT_NAME = "whisper-v3-large-pytorch"
+# WHISPER_ENDPOINT_NAME = "whisper-v3-large-pytorch"
+WHISPER_ENDPOINT_NAME = "va_whisper_large_v3"
+
 
 # Foundation Model endpoints for AI Functions
 LLM_ENDPOINT_REASONING = "databricks-claude-sonnet-4-5"  # For complex reasoning (compliance, email generation)

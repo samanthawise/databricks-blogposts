@@ -12,13 +12,9 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Install Dependencies
-# MAGIC %pip install -U --quiet mutagen
-# MAGIC dbutils.library.restartPython()
-
-# COMMAND ----------
-
 # DBTITLE 1,Import Libraries
+# Note: Dependencies (mutagen) should be installed before running this notebook
+# Install in the main pipeline notebook before importing config and this module
 from pyspark.sql.functions import udf, col, split, regexp_extract, regexp_replace, to_timestamp, concat_ws
 from pyspark.sql.types import FloatType, StringType, StructType, StructField
 from mutagen.mp3 import MP3
