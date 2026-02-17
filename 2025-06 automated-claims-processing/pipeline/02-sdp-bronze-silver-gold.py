@@ -253,11 +253,11 @@ SELECT
         returnType => 'STRUCT<score:INT, violations:ARRAY<STRING>, recommendations:STRING>'
     ) AS compliance_analysis,
 
-    -- Follow-up email generation with JSON schema
+    -- Follow-up email generation with structured output
     ai_query(
         '{LLM_ENDPOINT_REASONING}',
         CONCAT('{email_prompt_sql}', transcription),
-        responseFormat => '{email_schema_sql}'
+        returnType => 'STRUCT<subject:STRING, body:STRING, priority:STRING, action_required:BOOLEAN, followup_date:STRING>'
     ) AS follow_up_email
 FROM gold_intermediate_temp
 """
