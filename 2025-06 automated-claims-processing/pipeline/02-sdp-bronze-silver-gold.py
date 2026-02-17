@@ -246,23 +246,46 @@ gold_intermediate.createOrReplaceTempView("gold_intermediate_temp")
 final_gold_query = f"""
 SELECT
     *,
-    -- Compliance scoring with structured output
+    -- Compliance scoring (returns JSON string, will be parsed later)
     ai_query(
         '{LLM_ENDPOINT_REASONING}',
         CONCAT('{compliance_prompt_sql}', transcription),
-        returnType => 'STRUCT<score:INT, violations:ARRAY<STRING>, recommendations:STRING>'
+        returnType => 'STRING'
     ) AS compliance_analysis,
 
-    -- Follow-up email generation with structured output
+    -- Follow-up email generation (returns JSON string, will be parsed later)
     ai_query(
         '{LLM_ENDPOINT_REASONING}',
         CONCAT('{email_prompt_sql}', transcription),
-        returnType => 'STRUCT<subject:STRING, body:STRING, priority:STRING, action_required:BOOLEAN, followup_date:STRING>'
+        returnType => 'STRING'
     ) AS follow_up_email
 FROM gold_intermediate_temp
 """
 
 final_gold_df = spark.sql(final_gold_query)
+
+# Parse JSON strings from ai_query into structs
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, BooleanType, ArrayType
+
+# Define schemas for parsing JSON responses
+compliance_schema = StructType([
+    StructField("score", IntegerType(), True),
+    StructField("violations", ArrayType(StringType()), True),
+    StructField("recommendations", StringType(), True)
+])
+
+email_schema = StructType([
+    StructField("subject", StringType(), True),
+    StructField("body", StringType(), True),
+    StructField("priority", StringType(), True),
+    StructField("action_required", BooleanType(), True),
+    StructField("followup_date", StringType(), True)
+])
+
+# Parse the JSON string responses into structured columns
+final_gold_df = final_gold_df \
+    .withColumn("compliance_analysis", F.from_json(F.col("compliance_analysis"), compliance_schema)) \
+    .withColumn("follow_up_email", F.from_json(F.col("follow_up_email"), email_schema))
 
 # Flatten NER entities for easier access
 final_gold_df = final_gold_df \
