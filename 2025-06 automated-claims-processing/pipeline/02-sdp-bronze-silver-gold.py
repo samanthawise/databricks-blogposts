@@ -83,50 +83,63 @@ print("   To process audio files, uncomment the Bronze layer code")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 🥈 Silver Layer: Audio Transcription with Whisper
+# MAGIC ## 🥈 Silver Layer: Load Synthetic Call Data
 # MAGIC
-# MAGIC Processes raw audio files to create transcribed text with metadata:
-# MAGIC 1. Extract metadata from filename (call_id, agent_id, datetime)
-# MAGIC 2. Transcribe audio using Whisper endpoint via `ai_query()` function
-# MAGIC 3. Extract audio duration using mutagen
-# MAGIC 4. Create clean, structured table for downstream analysis
+# MAGIC Loads pre-generated synthetic call data with transcriptions:
+# MAGIC 1. Reads from `synthetic_call_data` table (created by sample_data_generator.py)
+# MAGIC 2. Contains call metadata (call_id, agent_id, datetime, customer info)
+# MAGIC 3. Includes simulated transcripts for testing AI enrichment
+# MAGIC 4. Prepares data for Gold layer processing
+# MAGIC
+# MAGIC **Note**: In production, this would read from actual transcribed audio files
 
 # COMMAND ----------
 
-# DBTITLE 1,Silver Layer - Load Existing Transcription Data
+# DBTITLE 1,Silver Layer - Load Synthetic Call Data
 
-print("Loading existing transcription data...")
+print("Loading synthetic call data...")
 
-# For now, skip the transcription process and use existing data
-# Read from the existing transcriptions_silver table with simulated data
-silver_table = f"{CATALOG}.{SCHEMA}.transcriptions_silver"
+# Read from the synthetic_call_data table (contains simulated transcripts)
+silver_table = f"{CATALOG}.{SCHEMA}.synthetic_call_data"
 
 try:
-    silver_df = spark.table(silver_table)
-    silver_count = silver_df.count()
-    print(f"✓ Loaded {silver_count} transcriptions from: {silver_table}")
+    # Load the table
+    silver_raw = spark.table(silver_table)
+    silver_count = silver_raw.count()
+    print(f"✓ Loaded {silver_count} calls from: {silver_table}")
+
+    # Prepare Silver DataFrame with standardized column names
+    # Map 'transcript' column to 'transcription' for consistency with Gold layer
+    silver_df = silver_raw.select(
+        F.col("call_id"),
+        F.col("agent_id"),
+        F.col("call_datetime"),
+        F.col("customer_name"),
+        F.col("phone_number"),
+        F.col("policy_number"),
+        F.col("duration_seconds"),
+        F.col("transcript").alias("transcription"),  # Rename for Gold layer
+        F.col("filename"),
+        F.col("category"),
+        F.col("reason_for_call")
+    )
 
     # Show sample
+    print(f"\n📊 Silver Data Sample:")
     display(silver_df.select(
         "call_id", "agent_id", "call_datetime", "transcription"
     ).limit(3))
 
 except Exception as e:
-    print(f"✗ Could not load transcription data: {e}")
+    print(f"✗ Could not load synthetic call data: {e}")
     print(f"\nPlease ensure the table exists: {silver_table}")
-    print("You can create it by running the sample_data_generator.py notebook")
+    print("Run the sample_data_generator.py notebook to create it")
     raise e
 
 # Note: To enable audio transcription with Whisper endpoint in the future:
-# 1. Uncomment the transcription code below
+# 1. Uncomment the Bronze layer code to ingest audio files
 # 2. Configure the Whisper endpoint properly
-# 3. Use ai_query() with the correct signature
-#
-# Example:
-# silver_df = bronze_df.selectExpr(
-#     "*",
-#     f"ai_query('{WHISPER_ENDPOINT_NAME}', content, returnType => 'STRING') as transcription"
-# )
+# 3. Add transcription step using ai_query() before Gold layer processing
 
 # COMMAND ----------
 
@@ -319,22 +332,20 @@ if gold_count > 0:
 # DBTITLE 1,Pipeline Execution Summary
 
 print("\n" + "=" * 80)
-print("LAKEFLOW SDP PIPELINE EXECUTION SUMMARY")
+print("GOLD LAYER PIPELINE EXECUTION SUMMARY")
 print("=" * 80)
 
-bronze_cnt = spark.table(f"{CATALOG}.{SCHEMA}.{BRONZE_TABLE}").count()
-silver_cnt = spark.table(f"{CATALOG}.{SCHEMA}.{SILVER_TABLE}").count()
-gold_cnt = spark.table(f"{CATALOG}.{SCHEMA}.{GOLD_TABLE}").count()
+# Count records from synthetic data and gold table
+silver_cnt = spark.table(silver_table).count()
+gold_cnt = spark.table(gold_table).count()
 
 print(f"\n📊 Record Counts:")
-print(f"  Bronze (Raw Audio):       {bronze_cnt}")
-print(f"  Silver (Transcriptions):  {silver_cnt}")
+print(f"  Silver (Synthetic Calls): {silver_cnt}")
 print(f"  Gold (AI Enriched):       {gold_cnt}")
 
-print(f"\n✅ Tables Created:")
-print(f"  1. {CATALOG}.{SCHEMA}.{BRONZE_TABLE}")
-print(f"  2. {CATALOG}.{SCHEMA}.{SILVER_TABLE}")
-print(f"  3. {CATALOG}.{SCHEMA}.{GOLD_TABLE}")
+print(f"\n✅ Tables Used/Created:")
+print(f"  Input:  {silver_table}")
+print(f"  Output: {gold_table}")
 
 print(f"\n🔍 AI Enrichments Applied:")
 print(f"  ✓ Sentiment Analysis")
