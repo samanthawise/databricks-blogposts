@@ -27,6 +27,7 @@ import random
 import uuid
 from datetime import datetime, timedelta
 from pyspark.sql import Row
+from pyspark.sql import functions as F
 from faker import Faker
 
 # Initialize Faker for realistic data generation
@@ -232,7 +233,7 @@ for i in range(NUM_CALLS):
         reason_for_call=reason_data['reason_for_call'],
         next_steps=reason_data['next_steps'],
         duration_seconds=duration,
-        transcription=transcript,  # Renamed from 'transcript' to 'transcription'
+        transcript=transcript,
         filename=filename,
         category=reason_data['category']
     ))
@@ -256,6 +257,37 @@ print(f"✓ Saved synthetic call data to table: {CATALOG}.{SCHEMA}.synthetic_cal
 
 # COMMAND ----------
 
+# DBTITLE 1,Create Silver Layer Table
+
+# Create a silver layer table from synthetic_call_data with standardized column names
+print("Creating silver layer table from synthetic call data...")
+
+silver_table_name = f"{CATALOG}.{SCHEMA}.transcriptions_silver"
+
+# Read synthetic_call_data and rename 'transcript' to 'transcription'
+silver_df = spark.table(f"{CATALOG}.{SCHEMA}.synthetic_call_data").select(
+    "call_id",
+    "agent_id",
+    "call_datetime",
+    "customer_name",
+    "phone_number",
+    "policy_number",
+    "duration_seconds",
+    F.col("transcript").alias("transcription"),  # Rename for pipeline consistency
+    "filename",
+    "category",
+    "reason_for_call"
+)
+
+# Save as silver table
+silver_df.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable(silver_table_name)
+
+print(f"✓ Created silver layer table: {silver_table_name}")
+print(f"  - Renamed 'transcript' to 'transcription' column")
+print(f"  - {silver_df.count()} records")
+
+# COMMAND ----------
+
 # DBTITLE 1,Sample Data Generation Summary
 
 print("\n" + "=" * 80)
@@ -265,13 +297,15 @@ print(f"\n✓ Generated {NUM_CALLS} synthetic call scenarios")
 print(f"  - {NUM_FRAUD_CASES} fraud cases")
 print(f"  - {NUM_HARDSHIP_CASES} financial hardship cases")
 print(f"  - {NUM_CALLS - NUM_FRAUD_CASES - NUM_HARDSHIP_CASES} general inquiries")
-print(f"✓ Saved synthetic data to table: {CATALOG}.{SCHEMA}.synthetic_call_data")
+print(f"\n✅ Tables Created:")
+print(f"  1. {CATALOG}.{SCHEMA}.synthetic_call_data (raw synthetic data)")
+print(f"  2. {CATALOG}.{SCHEMA}.transcriptions_silver (silver layer)")
 print("\n" + "=" * 80)
 print("NEXT STEPS")
 print("=" * 80)
-print("1. Use this synthetic data for testing and demonstration")
-print("2. The transcripts are in natural conversation format (no speaker labels)")
-print("3. Data can be used for AI analysis and enrichment pipelines")
+print("1. Run the Gold layer pipeline: pipeline/02-sdp-bronze-silver-gold.py")
+print("2. The pipeline will read from transcriptions_silver table")
+print("3. AI enrichments will be applied (sentiment, NER, compliance, etc.)")
 print("=" * 80)
 
 # COMMAND ----------

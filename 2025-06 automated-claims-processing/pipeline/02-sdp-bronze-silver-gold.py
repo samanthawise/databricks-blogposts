@@ -83,30 +83,30 @@ print("   To process audio files, uncomment the Bronze layer code")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 🥈 Silver Layer: Load Synthetic Call Data
+# MAGIC ## 🥈 Silver Layer: Load Transcription Data
 # MAGIC
-# MAGIC Loads pre-generated synthetic call data with transcriptions:
-# MAGIC 1. Reads from `synthetic_call_data` table (created by sample_data_generator.py)
-# MAGIC 2. Contains call metadata (call_id, agent_id, datetime, customer info)
-# MAGIC 3. Includes simulated transcripts for testing AI enrichment
-# MAGIC 4. Prepares data for Gold layer processing
+# MAGIC Loads transcription data from the silver layer table:
+# MAGIC 1. Reads from `transcriptions_silver` table (created by sample_data_generator.py)
+# MAGIC 2. Contains standardized columns with 'transcription' field
+# MAGIC 3. Includes call metadata (call_id, agent_id, datetime, customer info)
+# MAGIC 4. Ready for Gold layer AI enrichment processing
 # MAGIC
-# MAGIC **Note**: In production, this would read from actual transcribed audio files
+# MAGIC **Note**: In production, this table would be populated from actual Whisper-transcribed audio files
 
 # COMMAND ----------
 
-# DBTITLE 1,Silver Layer - Load Synthetic Call Data
+# DBTITLE 1,Silver Layer - Load Transcription Data
 
-print("Loading synthetic call data...")
+print("Loading transcription data from silver layer...")
 
-# Read from the synthetic_call_data table (contains simulated transcripts)
-silver_table = f"{CATALOG}.{SCHEMA}.synthetic_call_data"
+# Read from the transcriptions_silver table (created from synthetic_call_data)
+silver_table = f"{CATALOG}.{SCHEMA}.transcriptions_silver"
 
 try:
-    # Load the table
+    # Load the silver table
     silver_df = spark.table(silver_table)
     silver_count = silver_df.count()
-    print(f"✓ Loaded {silver_count} calls from: {silver_table}")
+    print(f"✓ Loaded {silver_count} transcriptions from: {silver_table}")
 
     # Show sample
     print(f"\n📊 Silver Data Sample:")
@@ -115,7 +115,7 @@ try:
     ).limit(3))
 
 except Exception as e:
-    print(f"✗ Could not load synthetic call data: {e}")
+    print(f"✗ Could not load transcription data: {e}")
     print(f"\nPlease ensure the table exists: {silver_table}")
     print("Run the sample_data_generator.py notebook to create it")
     raise e
