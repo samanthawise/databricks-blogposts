@@ -95,7 +95,7 @@ print(f"Loaded {len(call_reasons_list)} call reasons from lookup table")
 
 # DBTITLE 1,Generate Call Transcripts
 
-def generate_transcript(customer_name, policy_number, reason_for_call, sentiment):
+def generate_transcript(customer_name, policy_number, reason_for_call, sentiment, phone_number=None, email=None, dob=None):
     """Generate realistic call transcript based on scenario"""
 
     agent = f"Agent {random.randint(100, 999)}"
@@ -111,28 +111,46 @@ def generate_transcript(customer_name, policy_number, reason_for_call, sentiment
     # Customer introduction
     intro = f"Hi, my name is {customer_name}. I'm calling about {reason_for_call.lower()}."
 
-    # Verification
-    verification = f"Of course, I'd be happy to help with that. For security purposes, can I confirm your policy number?"
-    verification_response = f"Yes, it's {policy_number}."
+    # Verification - include phone number and occasionally DOB
+    verification_parts = [f"Of course, I'd be happy to help with that. For security purposes, can I confirm your policy number?"]
+    verification_response_parts = [f"Yes, it's {policy_number}."]
 
-    # Issue discussion (varies by reason)
+    # Add phone number to verification
+    if phone_number:
+        verification_parts.append(f"And can I get a callback number in case we get disconnected?")
+        verification_response_parts.append(f"Sure, it's {phone_number}.")
+
+    # Occasionally verify DOB for high-value/fraud cases
+    if dob and random.random() < 0.3:  # 30% of calls verify DOB
+        verification_parts.append(f"For additional security, can I also confirm your date of birth?")
+        verification_response_parts.append(f"It's {dob.strftime('%B %d, %Y')}.")
+
+    verification = " ".join(verification_parts)
+    verification_response = " ".join(verification_response_parts)
+
+    # Generate some dates for discussion
+    claim_submission_date = datetime.now() - timedelta(days=random.randint(7, 21))
+    expected_decision_date = datetime.now() + timedelta(days=random.randint(3, 7))
+    next_payment_date = datetime.now() + timedelta(days=random.randint(5, 30))
+
+    # Issue discussion (varies by reason) - include explicit dates
     if "claim" in reason_for_call.lower():
         discussion = [
             "Thank you for confirming. Let me pull up your account... I can see your claim here. What specific information did you need?",
-            "I wanted to check on the status. It's been two weeks since I submitted it.",
-            "I understand your concern. Let me check the current status... Your claim is currently under review by our medical assessment team. You should expect a decision within 3-5 business days.",
+            f"I wanted to check on the status. I submitted it on {claim_submission_date.strftime('%B %d, %Y')}.",
+            f"I understand your concern. Let me check the current status... Your claim is currently under review by our medical assessment team. You should expect a decision by {expected_decision_date.strftime('%B %d, %Y')}.",
         ]
     elif "billing" in reason_for_call.lower():
         discussion = [
             "Let me review your account details... I can see your billing history here. What specific question did you have?",
             "My premium payment seems higher than usual this month. Can you explain why?",
-            "I see there was an adjustment to your premium due to a policy update. Let me walk you through the changes...",
+            f"I see there was an adjustment to your premium due to a policy update effective {(datetime.now() - timedelta(days=30)).strftime('%B %d, %Y')}. Your next payment of $150 is due on {next_payment_date.strftime('%B %d, %Y')}.",
         ]
     elif "coverage" in reason_for_call.lower():
         discussion = [
             "I'd be happy to explain your coverage details. What specific aspect would you like to know about?",
             "I'm wondering if my policy covers physiotherapy sessions?",
-            "Yes, your current plan includes up to 10 physiotherapy sessions per year, but they need to be prescribed by your GP.",
+            f"Yes, your current plan includes up to 10 physiotherapy sessions per year. Your coverage period renews on {(datetime.now() + timedelta(days=90)).strftime('%B %d, %Y')}.",
         ]
     else:
         discussion = [
@@ -141,19 +159,28 @@ def generate_transcript(customer_name, policy_number, reason_for_call, sentiment
             "I understand. Let me see what I can do to help you with this...",
         ]
 
-    # Resolution and closing (varies by sentiment)
+    # Resolution and closing (varies by sentiment) - include email in closing
     if sentiment in ["Frustrated", "Angry"]:
         resolution = "I apologize for the inconvenience this has caused. I want to make sure we resolve this to your satisfaction. I'm going to escalate this to my supervisor, and you'll receive a call back within 24 hours. Is there anything else I can help clarify right now?"
         customer_end = "No, I just want this resolved quickly."
-        closing = "I completely understand. We'll prioritize this and be in touch soon. Thank you for your patience."
+        if email:
+            closing = f"I completely understand. We'll prioritize this and be in touch soon. I'll also send a confirmation email to {email} with the details of our conversation. Thank you for your patience."
+        else:
+            closing = "I completely understand. We'll prioritize this and be in touch soon. Thank you for your patience."
     elif sentiment == "Happy":
         resolution = "Is there anything else I can help you with today?"
         customer_end = "No, that's everything. Thanks so much for your help!"
-        closing = "You're very welcome! If you need anything else, don't hesitate to call us. Have a great day!"
+        if email:
+            closing = f"You're very welcome! I'll send you a summary email to {email} for your records. If you need anything else, don't hesitate to call us. Have a great day!"
+        else:
+            closing = "You're very welcome! If you need anything else, don't hesitate to call us. Have a great day!"
     else:  # Neutral, Confused
         resolution = "Just to summarize what we've discussed... Does that all make sense? Do you have any other questions?"
         customer_end = "Yes, that's clear. Thank you for explaining."
-        closing = "You're welcome! If anything else comes up, feel free to reach out. Take care!"
+        if email:
+            closing = f"You're welcome! I'll send you a confirmation email to {email} with all the details we discussed. If anything else comes up, feel free to reach out. Take care!"
+        else:
+            closing = "You're welcome! If anything else comes up, feel free to reach out. Take care!"
 
     # Assemble transcript (no speaker labels, natural flowing conversation)
     transcript_parts = [
@@ -204,18 +231,22 @@ for i in range(NUM_CALLS):
     customer_name = fake.name()
     policy_number = generate_policy_number()
     phone_number = random_phone_number()
+    email = fake.email()  # Generate email address
     dob = fake.date_of_birth(minimum_age=18, maximum_age=80)
     call_datetime = random_datetime_past_30_days()
     call_id = generate_call_id()
     agent_id = generate_agent_id()
     duration = random_call_duration()
 
-    # Generate transcript
+    # Generate transcript with all entity information
     transcript = generate_transcript(
         customer_name,
         policy_number,
         reason_data['reason_for_call'],
-        sentiment
+        sentiment,
+        phone_number=phone_number,
+        email=email,
+        dob=dob
     )
 
     # Create filename pattern: {call_id}_{agent_id}_{datetime}.wav
@@ -227,6 +258,7 @@ for i in range(NUM_CALLS):
         call_datetime=call_datetime,
         customer_name=customer_name,
         phone_number=phone_number,
+        email=email,  # Add email field
         dob=dob,
         policy_number=policy_number,
         sentiment=sentiment,
@@ -271,6 +303,8 @@ silver_df = spark.table(f"{CATALOG}.{SCHEMA}.synthetic_call_data").select(
     "call_datetime",
     "customer_name",
     "phone_number",
+    "email",  # Include email field
+    "dob",    # Include dob field
     "policy_number",
     "duration_seconds",
     F.col("transcript").alias("transcription"),  # Rename for pipeline consistency

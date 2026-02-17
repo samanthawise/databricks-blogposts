@@ -246,18 +246,52 @@ gold_intermediate.createOrReplaceTempView("gold_intermediate_temp")
 final_gold_query = f"""
 SELECT
     *,
-    -- Compliance scoring (returns JSON string, will be parsed later)
+    -- Compliance scoring with JSON schema response format
     ai_query(
         '{LLM_ENDPOINT_REASONING}',
         CONCAT('{compliance_prompt_sql}', transcription),
-        returnType => 'STRING'
+        returnType => 'STRING',
+        responseFormat => '{{
+            "type": "json_schema",
+            "json_schema": {{
+                "name": "compliance_analysis",
+                "schema": {{
+                    "type": "object",
+                    "properties": {{
+                        "score": {{"type": "integer", "description": "Compliance score from 0-100"}},
+                        "violations": {{"type": "array", "items": {{"type": "string"}}, "description": "List of violations found"}},
+                        "recommendations": {{"type": "string", "description": "Recommendations for improvement"}}
+                    }},
+                    "required": ["score", "violations", "recommendations"]
+                }},
+                "strict": true
+            }}
+        }}'
     ) AS compliance_analysis,
 
-    -- Follow-up email generation (returns JSON string, will be parsed later)
+    -- Follow-up email generation with JSON schema response format
     ai_query(
         '{LLM_ENDPOINT_REASONING}',
         CONCAT('{email_prompt_sql}', transcription),
-        returnType => 'STRING'
+        returnType => 'STRING',
+        responseFormat => '{{
+            "type": "json_schema",
+            "json_schema": {{
+                "name": "follow_up_email",
+                "schema": {{
+                    "type": "object",
+                    "properties": {{
+                        "subject": {{"type": "string", "description": "Email subject line"}},
+                        "body": {{"type": "string", "description": "Email body content"}},
+                        "priority": {{"type": "string", "enum": ["high", "normal", "low"], "description": "Email priority level"}},
+                        "action_required": {{"type": "boolean", "description": "Whether customer action is required"}},
+                        "followup_date": {{"type": "string", "description": "Suggested follow-up date (YYYY-MM-DD format)"}}
+                    }},
+                    "required": ["subject", "body", "priority"]
+                }},
+                "strict": true
+            }}
+        }}'
     ) AS follow_up_email
 FROM gold_intermediate_temp
 """
