@@ -1,330 +1,161 @@
 # Databricks Workflow: AI-Powered Call Center Analytics
 # Complete end-to-end orchestration of the call center analytics pipeline
+#
+# Paste the contents of this file into the YAML tab when creating/editing a job in the UI.
 
-name: call-center-analytics-pipeline
+resources:
+  dashboards:
+    call_center_analytics_dashboard:
+      display_name: "Call Center Analytics Dashboard"
+      file_path: ./dashboards/call-center-analytics.lvdash.json
+      warehouse_id: "862f1d757f0424f7"
+      parent_path: /Users/${workspace.current_user.userName}/dashboards
 
-# Job-level configuration
-job_clusters:
-  - job_cluster_key: main_cluster
-    new_cluster:
-      spark_version: 14.3.x-scala2.12
-      node_type_id: i3.xlarge
-      num_workers: 2
-      autoscale:
-        min_workers: 1
-        max_workers: 4
-      spark_conf:
-        spark.databricks.delta.optimizeWrite.enabled: "true"
-        spark.databricks.delta.autoCompact.enabled: "true"
-      custom_tags:
+  jobs:
+    call_center_analytics_pipeline:
+      name: call-center-analytics-pipeline
+
+      queue:
+        enabled: true
+
+      # Job-level configuration
+      job_clusters:
+        - job_cluster_key: main_cluster
+          new_cluster:
+            spark_version: 14.3.x-scala2.12
+            node_type_id: i3.xlarge
+            num_workers: 2
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+            spark_conf:
+              spark.databricks.delta.optimizeWrite.enabled: "true"
+              spark.databricks.delta.autoCompact.enabled: "true"
+            custom_tags:
+              project: call-center-analytics
+              environment: production
+
+      # Pipeline tasks
+      tasks:
+        # Task 1: Setup - Initialize catalog, schema, volumes, lookup tables
+        - task_key: setup_infrastructure
+          job_cluster_key: main_cluster
+          notebook_task:
+            notebook_path: /Workspace/Users/${workspace.current_user.userName}/2025-06 automated-claims-processing/setup/00-setup.py
+            base_parameters:
+              reset_all_data: "false"
+          timeout_seconds: 600
+          libraries:
+            - pypi:
+                package: faker>=20.0.0
+
+        # Task 2: Generate Synthetic Call Data
+        - task_key: generate_sample_data
+          depends_on:
+            - task_key: setup_infrastructure
+          job_cluster_key: main_cluster
+          notebook_task:
+            notebook_path: /Workspace/Users/${workspace.current_user.userName}/2025-06 automated-claims-processing/setup/sample_data_generator.py
+          timeout_seconds: 600
+          libraries:
+            - pypi:
+                package: faker>=20.0.0
+
+        # Task 3: Run Gold Layer AI Enrichment Pipeline
+        - task_key: gold_layer_enrichment
+          depends_on:
+            - task_key: generate_sample_data
+          job_cluster_key: main_cluster
+          notebook_task:
+            notebook_path: /Workspace/Users/${workspace.current_user.userName}/2025-06 automated-claims-processing/pipeline/02-sdp-bronze-silver-gold.py
+          timeout_seconds: 3600
+          retry_on_timeout: true
+          max_retries: 2
+          min_retry_interval_millis: 300000
+          libraries:
+            - pypi:
+                package: mutagen>=1.47.0
+
+        # Task 4: Create Unity Catalog Functions for Agent Integration
+        - task_key: create_uc_functions
+          depends_on:
+            - task_key: gold_layer_enrichment
+          job_cluster_key: main_cluster
+          notebook_task:
+            notebook_path: /Workspace/Users/${workspace.current_user.userName}/2025-06 automated-claims-processing/tools/03-create-uc-tools.py
+            base_parameters:
+              recreate_uc_tools: "false"
+          timeout_seconds: 300
+
+        # Task 5: Prepare Dashboard Aggregation Tables
+        - task_key: prepare_dashboard_data
+          depends_on:
+            - task_key: gold_layer_enrichment
+          job_cluster_key: main_cluster
+          notebook_task:
+            notebook_path: /Workspace/Users/${workspace.current_user.userName}/2025-06 automated-claims-processing/notebooks/05-prepare-dashboard-data.py
+          timeout_seconds: 600
+
+      # Schedule (currently paused - set pause_status: UNPAUSED to enable)
+      schedule:
+        quartz_cron_expression: "0 0 2 * * ?"
+        timezone_id: "UTC"
+        pause_status: PAUSED
+
+      # Email notifications
+      email_notifications:
+        on_start:
+          - <DATA_ENGINEERING_EMAIL>
+        on_success:
+          - <DATA_ENGINEERING_EMAIL>
+        on_failure:
+          - <DATA_ENGINEERING_EMAIL>
+          - <ONCALL_EMAIL>
+
+      max_concurrent_runs: 1
+      timeout_seconds: 7200
+
+      # Parameters (can be overridden at runtime)
+      parameters:
+        - name: catalog
+          default: call_center_analytics
+        - name: schema
+          default: main
+        - name: volume
+          default: call_center_data
+
+      # Tags for organization
+      tags:
         project: call-center-analytics
         environment: production
+        data_classification: sensitive
 
-# Pipeline tasks
-tasks:
-  # Task 1: Setup - Initialize catalog, schema, volumes, lookup tables
-  - task_key: setup_infrastructure
-    job_cluster_key: main_cluster
-    notebook_task:
-      notebook_path: /Workspace/Users/<USERNAME>/2025-06 automated-claims-processing/setup/00-setup.py
-      base_parameters:
-        reset_all_data: "false"
-    timeout_seconds: 600
-    libraries:
-      - pypi:
-          package: faker>=20.0.0
+      # Access control (DAB format)
+      # Uncomment and replace placeholders before deploying to prod:
+      # permissions:
+      #   - user_name: <DATA_ENGINEERING_TEAM_EMAIL>
+      #     level: CAN_MANAGE
+      #   - group_name: data-engineers
+      #     level: CAN_MANAGE
+      #   - group_name: data-scientists
+      #     level: CAN_VIEW
 
-  # Task 2: Generate Synthetic Call Data
-  # Creates synthetic_call_data and transcriptions_silver tables with realistic call transcripts
-  # Includes customer metadata, phone numbers, emails, and compliance scenarios
-  - task_key: generate_sample_data
-    depends_on:
-      - task_key: setup_infrastructure
-    job_cluster_key: main_cluster
-    notebook_task:
-      notebook_path: /Workspace/Users/<USERNAME>/2025-06 automated-claims-processing/setup/sample_data_generator.py
-    timeout_seconds: 600
-    libraries:
-      - pypi:
-          package: faker>=20.0.0
-
-  # Task 3 (Optional): Deploy Whisper Endpoint
-  # NOTE: Currently skipped in production as we use synthetic transcription data
-  # Uncomment this task and update dependencies if processing real audio files
-  # - task_key: deploy_whisper_endpoint
-  #   depends_on:
-  #     - task_key: setup_infrastructure
-  #   job_cluster_key: main_cluster
-  #   notebook_task:
-  #     notebook_path: /Workspace/Users/<USERNAME>/2025-06 automated-claims-processing/setup/01-deploy-whisper-endpoint.py
-  #     base_parameters:
-  #       action: use_existing  # Set to "recreate" to force redeployment
-  #   timeout_seconds: 1800  # 30 minutes for endpoint deployment
-  #   libraries:
-  #     - pypi:
-  #       package: databricks-sdk
-
-  # Task 4: Run Gold Layer AI Enrichment Pipeline
-  # Reads from transcriptions_silver and applies AI functions:
-  # - Sentiment analysis, summarization, classification
-  # - Named entity extraction (phone_numbers as ARRAY, email_addresses as ARRAY)
-  # - PII masking, compliance scoring, email generation
-  # Output: call_analysis_gold table with all AI enrichments
-  - task_key: gold_layer_enrichment
-    depends_on:
-      - task_key: generate_sample_data
-    job_cluster_key: main_cluster
-    notebook_task:
-      notebook_path: /Workspace/Users/<USERNAME>/2025-06 automated-claims-processing/pipeline/02-sdp-bronze-silver-gold.py
-    timeout_seconds: 3600  # 1 hour for AI enrichment
-    retry_on_timeout: true
-    max_retries: 2
-    min_retry_interval_millis: 300000  # 5 minutes
-    libraries:
-      - pypi:
-          package: mutagen>=1.47.0
-
-  # Task 5: Create Unity Catalog Functions for Agent Integration
-  # Creates 8 UC Functions for querying call data:
-  # - get_customer_policy_profile_by_phone_number
-  # - get_customer_sentiment_by_phone_number
-  # - get_customer_transcript_by_phone_number
-  # - get_call_summary_by_phone_number
-  # - get_compliance_score_by_phone_number
-  # - get_follow_up_email_by_phone_number
-  # - get_call_history_by_phone_number (no limit parameter - apply LIMIT when querying)
-  # - search_calls_by_classification (no limit parameter - apply LIMIT when querying)
-  - task_key: create_uc_functions
-    depends_on:
-      - task_key: gold_layer_enrichment
-    job_cluster_key: main_cluster
-    notebook_task:
-      notebook_path: /Workspace/Users/<USERNAME>/2025-06 automated-claims-processing/tools/03-create-uc-tools.py
-      base_parameters:
-        recreate_uc_tools: "false"
-    timeout_seconds: 300
-
-  # Task 6: Prepare Dashboard Aggregation Tables
-  # Creates pre-aggregated tables for AI/BI dashboard visualization:
-  # - dashboard_metrics: Overall KPIs and summary statistics
-  # - dashboard_trends: Time series data (by date and hour)
-  # - dashboard_agent_performance: Agent-level metrics
-  # - dashboard_call_reasons: Call reason analysis
-  # - dashboard_compliance_issues: Compliance score distribution
-  - task_key: prepare_dashboard_data
-    depends_on:
-      - task_key: gold_layer_enrichment
-    job_cluster_key: main_cluster
-    notebook_task:
-      notebook_path: /Workspace/Users/<USERNAME>/2025-06 automated-claims-processing/notebooks/05-prepare-dashboard-data.py
-    timeout_seconds: 600
-
-# Workflow triggers
-# NOTE: File arrival trigger commented out since we're using synthetic data
-# Uncomment and configure if processing real audio files
-# triggers:
-#   - file_arrival:
-#       url: /Volumes/<CATALOG>/<SCHEMA>/<VOLUME>/raw_recordings
-#       min_time_between_triggers_seconds: 300  # 5 minutes cooldown
-
-# Schedule (optional - for periodic synthetic data generation and analysis)
-schedule:
-  quartz_cron_expression: "0 0 2 * * ?"  # Daily at 2 AM UTC
-  timezone_id: "UTC"
-  pause_status: PAUSED  # Set to UNPAUSED to enable scheduled runs
-
-# Email notifications
-email_notifications:
-  on_start:
-    - <DATA_ENGINEERING_EMAIL>
-  on_success:
-    - <DATA_ENGINEERING_EMAIL>
-  on_failure:
-    - <DATA_ENGINEERING_EMAIL>
-    - <ONCALL_EMAIL>
-
-# Workflow-level settings
-max_concurrent_runs: 1  # Prevent concurrent pipeline runs
-timeout_seconds: 7200  # 2 hours for entire workflow
-
-# Parameters (can be overridden at runtime)
-parameters:
-  - name: catalog
-    default: call_center_analytics
-  - name: schema
-    default: main
-  - name: volume
-    default: call_center_data
-
-# Tags for organization
-tags:
-  project: call-center-analytics
-  environment: production
-  data_classification: sensitive
-
-# Access control
-access_control_list:
-  - user_name: <DATA_ENGINEERING_TEAM_EMAIL>
-    permission_level: CAN_MANAGE
-  - group_name: data-engineers
-    permission_level: CAN_MANAGE
-  - group_name: data-scientists
-    permission_level: CAN_VIEW
-
----
-
+# =====================
 # DEPLOYMENT INSTRUCTIONS
 # =====================
 #
-# This YAML file defines a Databricks Workflow for the Call Center Analytics pipeline.
-#
-# CURRENT ARCHITECTURE (Updated 2026-02-18):
-# ==========================================
-# 1. Synthetic Data Generation: Creates realistic call transcripts with customer metadata
-#    - 50 calls with natural conversation format (no speaker labels)
-#    - Includes phone numbers, emails, DOB, and explicit dates in transcripts
-#    - Creates synthetic_call_data and transcriptions_silver tables
-#
-# 2. Gold Layer AI Enrichment: Applies comprehensive AI functions to transcripts
-#    - Sentiment analysis, summarization, classification
-#    - Named entity extraction (phone_numbers and email_addresses as ARRAY types)
-#    - PII masking, compliance scoring (using JSON schema response format)
-#    - Follow-up email generation with structured JSON output
-#
-# 3. Unity Catalog Functions: Creates 8 UC functions for agent integration
-#    - Table-valued functions without LIMIT parameters (apply LIMIT when querying)
-#    - Uses ARRAY_CONTAINS for phone number lookups
-#
-# 4. Dashboard Preparation: Pre-aggregates data for AI/BI dashboard
-#    - Creates 5 aggregation tables for different dashboard pages
-#    - Supports real-time KPIs, trends, agent performance, and compliance analysis
-#
-# NOTE: Audio transcription (Whisper endpoint) is currently disabled
-#       The pipeline uses synthetic transcripts instead of processing real audio files
-#       Uncomment deploy_whisper_endpoint task and file triggers to enable audio processing
-#
-# BEFORE DEPLOYMENT:
-# 1. Replace all placeholders with your actual values:
-#    - <USERNAME>: Your Databricks workspace username
-#    - <CATALOG>: Your Unity Catalog catalog name (default: call_center_analytics)
-#    - <SCHEMA>: Your schema name (default: main)
-#    - <VOLUME>: Your volume name (default: call_center_data)
-#    - <DATA_ENGINEERING_EMAIL>: Email for notifications
-#    - <ONCALL_EMAIL>: Email for failure alerts
-#    - <DATA_ENGINEERING_TEAM_EMAIL>: Email for access control
-#
-# 2. Update notebook paths if you've imported to a different location
-#
-# 3. Adjust cluster configuration based on your workload:
-#    - node_type_id: Change based on cloud provider and region
-#    - num_workers: Adjust based on expected data volume
-#
-# DEPLOYMENT OPTIONS:
-#
-# Option 1: UI Deployment
-# -----------------------
-# 1. Go to Databricks Workspace → Workflows
-# 2. Click "Create Job"
-# 3. Click "JSON" tab
-# 4. Paste this YAML (converted to JSON)
-# 5. Update all placeholders
-# 6. Click "Create"
-#
-# Option 2: Databricks CLI
-# ------------------------
-# 1. Install Databricks CLI: pip install databricks-cli
-# 2. Configure authentication: databricks configure --token
-# 3. Create workflow: databricks jobs create --json-file call-center-analytics-workflow.json
-#
-# Option 3: Databricks SDK (Python)
-# ----------------------------------
-# from databricks.sdk import WorkspaceClient
-# from databricks.sdk.service import jobs
-# import yaml
-#
-# w = WorkspaceClient()
-#
-# with open('call-center-analytics-workflow.yml') as f:
-#     workflow_config = yaml.safe_load(f)
-#
-# # Convert YAML to Jobs API format and create
-# job = w.jobs.create(**workflow_config)
-# print(f"Created workflow: {job.job_id}")
-#
-# TRIGGER CONFIGURATION:
-#
-# File Arrival Trigger:
-# - Automatically runs when new audio files are uploaded to raw_recordings volume
-# - 5-minute cooldown between triggers to batch multiple file uploads
-# - Ideal for continuous processing
-#
-# Scheduled Trigger:
-# - Daily at 2 AM UTC (configurable)
-# - Currently PAUSED - set to UNPAUSED to enable
-# - Ideal for batch processing of accumulated files
-#
-# Manual Trigger:
-# - Run on-demand from Databricks UI or via API
-# - Ideal for testing and ad-hoc processing
-#
-# MONITORING:
-#
-# - Workflow runs appear in Databricks UI → Workflows → [Workflow Name] → Runs
-# - Email notifications sent on start, success, and failure
-# - Each task shows logs, metrics, and execution time
-# - Failed tasks can be restarted individually
-#
-# COST OPTIMIZATION:
-#
-# - Autoscaling cluster (1-4 workers) adapts to workload
-# - Whisper endpoint has scale-to-zero enabled
-# - max_concurrent_runs: 1 prevents overlapping expensive runs
-# - File arrival trigger batches multiple uploads
-#
-# TROUBLESHOOTING:
-#
-# Issue: UC Functions fail with "ARRAY_CONTAINS expects ARRAY type" error
-# Solution: Ensure Gold pipeline ran with phone_numbers/email_addresses as ARRAY type
-#          The pipeline wraps extracted entities in F.array() to create proper ARRAY columns
-#
-# Issue: Gold layer enrichment times out
-# Solution: Increase timeout_seconds or check LLM endpoint availability
-#          Default timeout is 3600 seconds (1 hour) which should be sufficient
-#
-# Issue: Dashboard shows no data or empty visualizations
-# Solution: Verify prepare_dashboard_data task completed successfully
-#          Check that call_analysis_gold table has records
-#          Run SELECT COUNT(*) FROM call_center_analytics.main.call_analysis_gold
-#
-# Issue: Sample data generator fails
-# Solution: Ensure faker library is installed (included in task libraries)
-#          Check that call_reasons and compliance_guidelines tables exist
-#
-# Issue: File arrival trigger not working (if enabled for real audio)
-# Solution: Verify volume path is correct and files are being uploaded
-#          Ensure Whisper endpoint is deployed and ready
-#
-# Issue: Notifications not received
-# Solution: Check email addresses and workspace SMTP configuration
+# BEFORE PASTING:
+# Replace all placeholders with your actual values:
+#   - ${workspace.current_user.userName}: Your Databricks workspace username
+#   - <DATA_ENGINEERING_EMAIL>: Email for notifications
+#   - <ONCALL_EMAIL>: Email for failure alerts
+#   - <DATA_ENGINEERING_TEAM_EMAIL>: Email for access control
 #
 # PRODUCTION CHECKLIST:
-#
-# [ ] All placeholders replaced with production values (<USERNAME>, <CATALOG>, etc.)
-# [ ] Cluster configuration optimized for workload and cloud provider
-# [ ] Email notifications configured with correct addresses
-# [ ] Access control list updated with team members
-# [ ] Schedule enabled (set pause_status: UNPAUSED) or manual trigger configured
-# [ ] Test run completed successfully with all 6 tasks passing
-# [ ] Verify Gold table has phone_numbers and email_addresses as ARRAY types
-# [ ] Verify UC Functions created successfully (8 functions expected)
-# [ ] Verify dashboard aggregation tables created (5 tables expected)
-# [ ] AI/BI Dashboard created and published from dashboard_* tables
-# [ ] Monitoring and alerting set up for task failures
-# [ ] Documentation updated with workflow ID and dashboard URL
-# [ ] LLM endpoints (databricks-claude-sonnet-4-5) available and accessible
-#
-# SUPPORT:
-#
-# - Databricks Workflows Documentation: https://docs.databricks.com/workflows/
-# - Databricks CLI: https://docs.databricks.com/dev-tools/cli/
-# - Databricks SDK: https://docs.databricks.com/dev-tools/sdk-python.html
+# [ ] All <placeholders> replaced
+# [ ] node_type_id updated for your cloud provider/region
+# [ ] Schedule set to UNPAUSED if automated runs are needed
+# [ ] Test run completed with all 5 tasks passing
+# [ ] Gold table has phone_numbers/email_addresses as ARRAY types
+# [ ] 8 UC Functions created successfully
+# [ ] 5 dashboard aggregation tables created

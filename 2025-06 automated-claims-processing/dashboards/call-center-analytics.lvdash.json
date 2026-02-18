@@ -1,0 +1,387 @@
+{
+  "datasets": [
+    {
+      "name": "ds_metrics",
+      "displayName": "Overall Metrics",
+      "queryLines": [
+        "SELECT * FROM call_center_analytics.main.dashboard_metrics"
+      ]
+    },
+    {
+      "name": "ds_sentiment",
+      "displayName": "Sentiment Breakdown",
+      "queryLines": [
+        "SELECT 'Positive' as sentiment_type, positive_sentiment_count as count FROM call_center_analytics.main.dashboard_metrics UNION ALL SELECT 'Neutral' as sentiment_type, neutral_sentiment_count as count FROM call_center_analytics.main.dashboard_metrics UNION ALL SELECT 'Negative' as sentiment_type, negative_sentiment_count as count FROM call_center_analytics.main.dashboard_metrics"
+      ]
+    },
+    {
+      "name": "ds_trends",
+      "displayName": "Trends Over Time",
+      "queryLines": [
+        "SELECT call_date, call_hour, call_count, avg_duration, avg_compliance, positive_count, negative_count, neutral_count, top_call_reason FROM call_center_analytics.main.dashboard_trends ORDER BY call_date DESC, call_hour DESC"
+      ]
+    },
+    {
+      "name": "ds_agents",
+      "displayName": "Agent Performance",
+      "queryLines": [
+        "SELECT agent_id, total_calls, avg_call_duration, positive_percentage, avg_compliance_score, performance_tier, positive_calls, negative_calls, low_compliance_calls FROM call_center_analytics.main.dashboard_agent_performance ORDER BY avg_compliance_score DESC"
+      ]
+    },
+    {
+      "name": "ds_call_reasons_top10",
+      "displayName": "Top 10 Call Reasons by Volume",
+      "queryLines": [
+        "SELECT call_reason, call_count, percentage_of_total, avg_duration, avg_compliance_score FROM call_center_analytics.main.dashboard_call_reasons ORDER BY call_count DESC LIMIT 10"
+      ]
+    },
+    {
+      "name": "ds_call_reasons_by_duration_top10",
+      "displayName": "Top 10 Call Reasons by Duration",
+      "queryLines": [
+        "SELECT call_reason, call_count, avg_duration, avg_compliance_score FROM call_center_analytics.main.dashboard_call_reasons ORDER BY avg_duration DESC LIMIT 10"
+      ]
+    },
+    {
+      "name": "ds_call_reasons",
+      "displayName": "All Call Reasons",
+      "queryLines": [
+        "SELECT call_reason, call_count, percentage_of_total, avg_duration, avg_compliance_score, negative_percentage, positive_count, negative_count, neutral_count FROM call_center_analytics.main.dashboard_call_reasons ORDER BY call_count DESC"
+      ]
+    },
+    {
+      "name": "ds_compliance",
+      "displayName": "Compliance Analysis",
+      "queryLines": [
+        "SELECT compliance_range, call_count, percentage, avg_score, avg_duration, negative_sentiment_pct FROM call_center_analytics.main.dashboard_compliance_issues ORDER BY avg_score DESC"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "overview",
+      "displayName": "Overview",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "title",
+            "multilineTextboxSpec": {
+              "lines": ["## Call Center Analytics Dashboard"]
+            }
+          },
+          "position": {"x": 0, "y": 0, "width": 6, "height": 1}
+        },
+        {
+          "widget": {
+            "name": "subtitle",
+            "multilineTextboxSpec": {
+              "lines": ["Real-time insights into call center performance, agent metrics, and customer sentiment"]
+            }
+          },
+          "position": {"x": 0, "y": 1, "width": 6, "height": 1}
+        },
+        {
+          "widget": {
+            "name": "total-calls",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_metrics", "fields": [{"name": "total_calls", "expression": "`total_calls`"}], "disaggregated": true}}],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {"value": {"fieldName": "total_calls", "displayName": "Total Calls"}},
+              "frame": {"title": "Total Calls", "showTitle": true}
+            }
+          },
+          "position": {"x": 0, "y": 2, "width": 2, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "avg-duration",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_metrics", "fields": [{"name": "avg_call_duration_sec", "expression": "`avg_call_duration_sec`"}], "disaggregated": true}}],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {"value": {"fieldName": "avg_call_duration_sec", "displayName": "Avg Duration (sec)"}},
+              "frame": {"title": "Avg Call Duration", "showTitle": true}
+            }
+          },
+          "position": {"x": 2, "y": 2, "width": 2, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "avg-compliance",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_metrics", "fields": [{"name": "avg_compliance_score", "expression": "`avg_compliance_score`"}], "disaggregated": true}}],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {"value": {"fieldName": "avg_compliance_score", "displayName": "Avg Compliance"}},
+              "frame": {"title": "Avg Compliance Score", "showTitle": true}
+            }
+          },
+          "position": {"x": 4, "y": 2, "width": 2, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "section-sentiment",
+            "multilineTextboxSpec": {"lines": ["### Sentiment Distribution"]}
+          },
+          "position": {"x": 0, "y": 5, "width": 6, "height": 1}
+        },
+        {
+          "widget": {
+            "name": "sentiment-pie",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_sentiment", "fields": [{"name": "sentiment_type", "expression": "`sentiment_type`"}, {"name": "count", "expression": "`count`"}], "disaggregated": true}}],
+            "spec": {
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {"fieldName": "count", "scale": {"type": "quantitative"}, "displayName": "Count"},
+                "color": {"fieldName": "sentiment_type", "scale": {"type": "categorical"}, "displayName": "Sentiment"}
+              },
+              "frame": {"title": "Sentiment Breakdown", "showTitle": true}
+            }
+          },
+          "position": {"x": 0, "y": 6, "width": 3, "height": 5}
+        },
+        {
+          "widget": {
+            "name": "compliance-dist",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_compliance", "fields": [{"name": "compliance_range", "expression": "`compliance_range`"}, {"name": "call_count", "expression": "`call_count`"}], "disaggregated": true}}],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {"fieldName": "compliance_range", "displayName": "Compliance Range", "scale": {"type": "categorical"}},
+                "y": {"fieldName": "call_count", "displayName": "Call Count", "scale": {"type": "quantitative"}}
+              },
+              "frame": {"title": "Compliance Distribution", "showTitle": true}
+            }
+          },
+          "position": {"x": 3, "y": 6, "width": 3, "height": 5}
+        },
+        {
+          "widget": {
+            "name": "section-reasons",
+            "multilineTextboxSpec": {"lines": ["### Top 10 Call Reasons"]}
+          },
+          "position": {"x": 0, "y": 11, "width": 6, "height": 1}
+        },
+        {
+          "widget": {
+            "name": "call-reasons-chart",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_call_reasons_top10", "fields": [{"name": "call_reason", "expression": "`call_reason`"}, {"name": "call_count", "expression": "`call_count`"}], "disaggregated": true}}],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {"fieldName": "call_count", "displayName": "Call Count", "scale": {"type": "quantitative"}},
+                "y": {"fieldName": "call_reason", "displayName": "Call Reason", "scale": {"type": "categorical", "sort": {"by": "x-reversed"}}},
+                "color": {"fieldName": "call_reason", "displayName": "Call Reason", "scale": {"type": "categorical"}}
+              },
+              "frame": {"title": "Top 10 Calls by Reason", "showTitle": true}
+            }
+          },
+          "position": {"x": 0, "y": 12, "width": 6, "height": 6}
+        }
+      ]
+    },
+    {
+      "name": "trends",
+      "displayName": "Trends",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "trends-title",
+            "multilineTextboxSpec": {"lines": ["## Call Volume & Performance Trends"]}
+          },
+          "position": {"x": 0, "y": 0, "width": 6, "height": 1}
+        },
+        {
+          "widget": {
+            "name": "call-volume-trend",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_trends", "fields": [{"name": "call_date", "expression": "`call_date`"}, {"name": "sum(call_count)", "expression": "SUM(`call_count`)"}], "disaggregated": false}}],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {"fieldName": "call_date", "scale": {"type": "temporal"}, "displayName": "Date"},
+                "y": {"fieldName": "sum(call_count)", "scale": {"type": "quantitative"}, "displayName": "Call Count"}
+              },
+              "frame": {"title": "Daily Call Volume", "showTitle": true}
+            }
+          },
+          "position": {"x": 0, "y": 1, "width": 6, "height": 5}
+        },
+        {
+          "widget": {
+            "name": "compliance-trend",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_trends", "fields": [{"name": "call_date", "expression": "`call_date`"}, {"name": "avg(avg_compliance)", "expression": "AVG(`avg_compliance`)"}], "disaggregated": false}}],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {"fieldName": "call_date", "scale": {"type": "temporal"}, "displayName": "Date"},
+                "y": {"fieldName": "avg(avg_compliance)", "scale": {"type": "quantitative"}, "displayName": "Avg Compliance"}
+              },
+              "frame": {"title": "Compliance Score Trend", "showTitle": true}
+            }
+          },
+          "position": {"x": 0, "y": 6, "width": 6, "height": 5}
+        },
+        {
+          "widget": {
+            "name": "duration-trend",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_trends", "fields": [{"name": "call_date", "expression": "`call_date`"}, {"name": "avg(avg_duration)", "expression": "AVG(`avg_duration`)"}], "disaggregated": false}}],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {"fieldName": "call_date", "scale": {"type": "temporal"}, "displayName": "Date"},
+                "y": {"fieldName": "avg(avg_duration)", "scale": {"type": "quantitative"}, "displayName": "Avg Duration (sec)"}
+              },
+              "frame": {"title": "Average Call Duration Trend", "showTitle": true}
+            }
+          },
+          "position": {"x": 0, "y": 11, "width": 6, "height": 5}
+        }
+      ]
+    },
+    {
+      "name": "agents",
+      "displayName": "Agent Performance",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "agents-title",
+            "multilineTextboxSpec": {"lines": ["## Agent Performance Analysis"]}
+          },
+          "position": {"x": 0, "y": 0, "width": 6, "height": 1}
+        },
+        {
+          "widget": {
+            "name": "agent-compliance",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_agents", "fields": [{"name": "agent_id", "expression": "`agent_id`"}, {"name": "avg_compliance_score", "expression": "`avg_compliance_score`"}], "disaggregated": true}}],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {"fieldName": "agent_id", "scale": {"type": "categorical"}, "displayName": "Agent"},
+                "y": {"fieldName": "avg_compliance_score", "scale": {"type": "quantitative"}, "displayName": "Avg Compliance"}
+              },
+              "frame": {"title": "Compliance Score by Agent", "showTitle": true}
+            }
+          },
+          "position": {"x": 0, "y": 1, "width": 3, "height": 5}
+        },
+        {
+          "widget": {
+            "name": "agent-volume",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_agents", "fields": [{"name": "agent_id", "expression": "`agent_id`"}, {"name": "total_calls", "expression": "`total_calls`"}], "disaggregated": true}}],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {"fieldName": "agent_id", "scale": {"type": "categorical"}, "displayName": "Agent"},
+                "y": {"fieldName": "total_calls", "scale": {"type": "quantitative"}, "displayName": "Total Calls"}
+              },
+              "frame": {"title": "Call Volume by Agent", "showTitle": true}
+            }
+          },
+          "position": {"x": 3, "y": 1, "width": 3, "height": 5}
+        },
+        {
+          "widget": {
+            "name": "agent-table",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_agents", "fields": [{"name": "agent_id", "expression": "`agent_id`"}, {"name": "total_calls", "expression": "`total_calls`"}, {"name": "avg_call_duration", "expression": "`avg_call_duration`"}, {"name": "positive_percentage", "expression": "`positive_percentage`"}, {"name": "avg_compliance_score", "expression": "`avg_compliance_score`"}, {"name": "performance_tier", "expression": "`performance_tier`"}], "disaggregated": true}}],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {"fieldName": "agent_id", "displayName": "Agent ID"},
+                  {"fieldName": "total_calls", "displayName": "Total Calls"},
+                  {"fieldName": "avg_call_duration", "displayName": "Avg Duration (sec)"},
+                  {"fieldName": "positive_percentage", "displayName": "Positive %"},
+                  {"fieldName": "avg_compliance_score", "displayName": "Compliance Score"},
+                  {"fieldName": "performance_tier", "displayName": "Performance Tier"}
+                ]
+              },
+              "frame": {"title": "Agent Performance Details", "showTitle": true}
+            }
+          },
+          "position": {"x": 0, "y": 6, "width": 6, "height": 6}
+        }
+      ]
+    },
+    {
+      "name": "call_reasons",
+      "displayName": "Call Reasons Analysis",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "reasons-title",
+            "multilineTextboxSpec": {"lines": ["## Call Reasons & Resolution Analysis"]}
+          },
+          "position": {"x": 0, "y": 0, "width": 6, "height": 1}
+        },
+        {
+          "widget": {
+            "name": "reasons-volume",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_call_reasons", "fields": [{"name": "call_reason", "expression": "`call_reason`"}, {"name": "percentage_of_total", "expression": "`percentage_of_total`"}], "disaggregated": true}}],
+            "spec": {
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {"fieldName": "percentage_of_total", "scale": {"type": "quantitative"}, "displayName": "Percentage"},
+                "color": {"fieldName": "call_reason", "scale": {"type": "categorical"}, "displayName": "Call Reason"}
+              },
+              "frame": {"title": "Call Reason Distribution", "showTitle": true}
+            }
+          },
+          "position": {"x": 0, "y": 1, "width": 3, "height": 5}
+        },
+        {
+          "widget": {
+            "name": "reasons-duration",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_call_reasons_by_duration_top10", "fields": [{"name": "call_reason", "expression": "`call_reason`"}, {"name": "avg_duration", "expression": "`avg_duration`"}], "disaggregated": true}}],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {"fieldName": "avg_duration", "displayName": "Avg Duration (sec)", "scale": {"type": "quantitative"}},
+                "y": {"fieldName": "call_reason", "displayName": "Call Reason", "scale": {"type": "categorical", "sort": {"by": "x-reversed"}}},
+                "color": {"fieldName": "call_reason", "displayName": "Call Reason", "scale": {"type": "categorical"}}
+              },
+              "frame": {"title": "Top 10 by Avg Duration", "showTitle": true}
+            }
+          },
+          "position": {"x": 3, "y": 1, "width": 3, "height": 5}
+        },
+        {
+          "widget": {
+            "name": "reasons-table",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_call_reasons", "fields": [{"name": "call_reason", "expression": "`call_reason`"}, {"name": "call_count", "expression": "`call_count`"}, {"name": "percentage_of_total", "expression": "`percentage_of_total`"}, {"name": "avg_duration", "expression": "`avg_duration`"}, {"name": "avg_compliance_score", "expression": "`avg_compliance_score`"}], "disaggregated": true}}],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {"fieldName": "call_reason", "displayName": "Call Reason"},
+                  {"fieldName": "call_count", "displayName": "Count"},
+                  {"fieldName": "percentage_of_total", "displayName": "% of Total"},
+                  {"fieldName": "avg_duration", "displayName": "Avg Duration (sec)"},
+                  {"fieldName": "avg_compliance_score", "displayName": "Compliance Score"}
+                ]
+              },
+              "frame": {"title": "Call Reason Details", "showTitle": true}
+            }
+          },
+          "position": {"x": 0, "y": 6, "width": 6, "height": 6}
+        }
+      ]
+    }
+  ]
+}

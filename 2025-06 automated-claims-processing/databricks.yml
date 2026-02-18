@@ -1,0 +1,15 @@
+bundle:
+  name: call-center-analytics
+
+include:
+  - call-center-analytics-workflow.yml
+
+targets:
+  dev:
+    mode: development
+    default: true
+
+  prod:
+    mode: production
+    run_as:
+      user_name: ${workspace.current_user.userName}
