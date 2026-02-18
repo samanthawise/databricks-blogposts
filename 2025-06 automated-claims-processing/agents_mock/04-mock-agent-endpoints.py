@@ -361,26 +361,26 @@ print("\n" + "=" * 80)
 # MAGIC
 # MAGIC ```
 # MAGIC ┌─────────────────────────────────────────────────────────────┐
-# MAGIC │                    Agent Bricks System                       │
-# MAGIC │                  (External Agent Bricks Agents)                 │
+# MAGIC │                    Agent Bricks System                      │
+# MAGIC │                  (External Agent Bricks Agents)             │
 # MAGIC └─────────────────────────────────────────────────────────────┘
 # MAGIC                              │
 # MAGIC                              │ Uses UC Functions
 # MAGIC                              ▼
 # MAGIC ┌─────────────────────────────────────────────────────────────┐
-# MAGIC │              Unity Catalog Functions (UC Tools)              │
+# MAGIC │              Unity Catalog Functions (UC Tools)             │
 # MAGIC │  - get_customer_policy_profile_by_phone_number()            │
 # MAGIC │  - get_customer_sentiment_by_phone_number()                 │
 # MAGIC │  - get_call_summary_by_phone_number()                       │
 # MAGIC │  - get_compliance_score_by_phone_number()                   │
-# MAGIC │  - etc.                                                      │
+# MAGIC │  - etc.                                                     │
 # MAGIC └─────────────────────────────────────────────────────────────┘
 # MAGIC                              │
 # MAGIC                              │ Queries
 # MAGIC                              ▼
 # MAGIC ┌─────────────────────────────────────────────────────────────┐
-# MAGIC │                   Gold Table (Delta Lake)                    │
-# MAGIC │              call_analysis_gold                              │
+# MAGIC │                   Gold Table (Delta Lake)                   │
+# MAGIC │              call_analysis_gold                             │
 # MAGIC │  - Transcriptions, Sentiment, Summaries                     │
 # MAGIC │  - Classifications, NER, Compliance Scores                  │
 # MAGIC │  - Follow-up Emails                                         │
