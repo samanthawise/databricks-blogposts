@@ -322,12 +322,19 @@ final_gold_df = final_gold_df \
     .withColumn("follow_up_email", F.from_json(F.col("follow_up_email"), email_schema))
 
 # Flatten NER entities for easier access
+# Note: Wrap extracted values in arrays to support ARRAY_CONTAINS queries in UC Functions
 final_gold_df = final_gold_df \
     .withColumn("customer_name", F.col("entities.person")) \
     .withColumn("policy_number_extracted", F.col("entities.policy_number")) \
     .withColumn("dates_mentioned", F.col("entities.date")) \
-    .withColumn("phone_numbers", F.col("entities.phone")) \
-    .withColumn("email_addresses", F.col("entities.email"))
+    .withColumn("phone_numbers",
+                F.when(F.col("entities.phone").isNotNull(),
+                       F.array(F.col("entities.phone")))
+                .otherwise(F.array())) \
+    .withColumn("email_addresses",
+                F.when(F.col("entities.email").isNotNull(),
+                       F.array(F.col("entities.email")))
+                .otherwise(F.array()))
 
 # Write final Gold table
 gold_table = f"{CATALOG}.{SCHEMA}.{GOLD_TABLE}"
