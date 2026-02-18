@@ -1,45 +1,41 @@
-# 🧠 AI-Powered Call Center Analytics – Unified Solution Accelerator
+# 🧠 AI-Powered Call Center Analytics – Solution Accelerator
 
-A comprehensive Databricks solution accelerator that transforms call center audio recordings into actionable insights using **Lakeflow Spark Declarative Pipelines (SDP)**, **Whisper transcription**, **AI Functions**, and **Agent Bricks integration**.
+A comprehensive Databricks solution accelerator that transforms call center data into actionable insights using **Synthetic Data Generation**, **AI Functions**, **Unity Catalog Functions**, and **AI/BI Dashboards**.
 
-This solution combines the best patterns from two prior accelerators:
-- **Excellent documentation and customer-ready packaging**
-- **Production-grade Whisper endpoint transcription**
-- **Comprehensive batch AI analysis**
-- **Agent integration readiness with UC Functions**
+This solution demonstrates end-to-end call center analytics with:
+- **Production-ready synthetic data generation** with realistic call transcripts
+- **Comprehensive AI enrichment** using Databricks AI Functions
+- **Agent-ready data access layer** with Unity Catalog Functions
+- **Interactive AI/BI dashboards** for real-time analytics
 
 ---
 
 ## 🎯 Key Features
 
-✅ **Production-Ready Whisper Transcription**
-- PyTorch Whisper v3 Large deployed as Model Serving endpoint
-- Scalable batch transcription via `ai_query()` function
-- No local model loading - fully serverless
-
-✅ **Lakeflow Spark Declarative Pipelines (SDP)**
-- Latest Databricks data pipeline framework
-- Auto Loader for incremental processing
-- Medallion architecture: Bronze → Silver → Gold
+✅ **Realistic Synthetic Data Generation**
+- 50 synthetic call scenarios with natural conversation flow
+- Includes customer metadata (phone, email, DOB, policy numbers)
+- Fraud and financial hardship scenarios
+- Ready for demo and testing without real customer data
 
 ✅ **Comprehensive AI Analysis**
 - Sentiment analysis and call summarization
 - Dynamic classification from lookup tables
-- Named entity recognition and PII masking
-- Compliance scoring with structured outputs
+- Named entity recognition (ARRAY types for phone/email)
+- PII masking and compliance scoring
 - Follow-up email generation with JSON schemas
 
 ✅ **Agent Integration Ready**
 - 8 Unity Catalog Functions for data access
-- Designed for Agent Bricks Knowledge Assistant
-- Mock agent endpoints for testing
-- Multi-agent workflow support
+- Designed for Agent Bricks Knowledge Assistant integration
+- Phone and email lookups using ARRAY types
+- Table-valued functions with flexible LIMIT
 
-✅ **Customer-Ready Packaging**
-- Clear documentation and setup guides
-- Modular notebook structure
-- Dashboard templates and workflow orchestration
-- Sample data generators for demos
+✅ **AI/BI Dashboard**
+- Multi-page interactive dashboard
+- Pre-aggregated metrics for fast queries
+- Call volume trends, sentiment analysis, agent performance
+- Compliance scoring and call reason breakdown
 
 ---
 
@@ -48,85 +44,88 @@ This solution combines the best patterns from two prior accelerators:
 ```
 2025-06 automated-claims-processing/
 ├── config/
-│   ├── config.py                          # Unified configuration (widgets, endpoints, helpers)
-│   └── pipeline_config.yaml               # Lakeflow workflow configuration
+│   └── config.py                          # Unified configuration (widgets, endpoints, helpers)
 ├── setup/
 │   ├── 00-setup.py                        # Initialize catalog/schema/volumes & lookup tables
-│   ├── 01-deploy-whisper-endpoint.py      # Deploy PyTorch Whisper endpoint
-│   └── sample_data_generator.py           # Generate synthetic demo data
+│   ├── 01-deploy-whisper-endpoint.py      # (Optional) Deploy PyTorch Whisper endpoint
+│   └── sample_data_generator.py           # Generate synthetic demo data with realistic transcripts
 ├── pipeline/
 │   ├── audio_processing_utils.py          # Audio metadata extraction utilities
-│   └── 02-sdp-bronze-silver-gold.py       # Lakeflow SDP pipeline (Bronze → Silver → Gold)
+│   └── 02-sdp-bronze-silver-gold.py       # Gold layer AI enrichment pipeline
 ├── tools/
 │   └── 03-create-uc-tools.py              # Create 8 UC Functions for agent integration
-├── agents_mock/
-│   └── 04-mock-agent-endpoints.py         # Mock agent endpoints for testing
 ├── notebooks/
 │   └── 05-prepare-dashboard-data.py       # Prepare aggregated data for dashboards
+├── agents_mock/
+│   └── 04-mock-agent-endpoints.py         # Mock agent endpoints for testing
+├── raw_recordings/                         # (Optional) Audio files for transcription
 ├── README.md                              # This file
 ├── IMPLEMENTATION_GUIDE.md                # Step-by-step implementation guide
-└── call-center-analytics-workflow.yml     # Lakeflow workflow orchestration
+├── LICENSE.txt                            # License file
+└── call-center-analytics-workflow.yml     # Workflow orchestration configuration
 ```
 
 ---
 
 ## 🏗 Architecture
 
-### Data Pipeline: Medallion Architecture with Lakeflow SDP
+### Current Implementation: Synthetic Data + AI Enrichment
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  BRONZE LAYER                                   │
-│  Auto Loader (cloudFiles) → Incremental Audio File Ingestion    │
-│  - Detects new .wav/.mp3/.flac files                            │
-│  - Binary file format ingestion                                 │
-│  - Checkpoint-based exactly-once processing                     │
+│                  DATA GENERATION                                │
+│  Synthetic Call Data Generator (Faker + PySpark)                │
+│  - 50 realistic call transcripts with natural conversation      │
+│  - Customer metadata (name, phone, email, DOB, policy)          │
+│  - Explicit dates and entity mentions for accurate extraction   │
+│  Output: synthetic_call_data, transcriptions_silver             │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                  SILVER LAYER                                   │
-│  Audio Transcription + Metadata Extraction                      │
-│  - Parse filename → call_id, agent_id, datetime                 │
-│  - Transcribe via Whisper endpoint (ai_query)                   │
-│  - Extract duration and metadata                                │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                  GOLD LAYER                                     │ 
-│  Comprehensive AI Enrichment with Batch AI Functions            │
+│                  GOLD LAYER AI ENRICHMENT                       │
+│  Comprehensive AI Analysis with Batch AI Functions              │
 │  ✓ Sentiment Analysis          ✓ Call Summarization             │
 │  ✓ Call Reason Classification  ✓ Named Entity Recognition       │
-│  ✓ PII Masking                 ✓ Compliance Scoring             │
-│  ✓ Follow-up Email Generation                                   │
+│  ✓ PII Masking                 ✓ Compliance Scoring (JSON)      │
+│  ✓ Follow-up Email Generation (JSON Schema)                     │
+│  Output: call_analysis_gold (with phone_numbers as ARRAY)       │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │                  Unity Catalog Functions (UC Tools)             │
 │  Data Access Layer for Agent Integration                        │
-│  - get_customer_policy_profile_by_phone_number()                │
-│  - get_customer_sentiment_by_phone_number()                     │
-│  - get_call_summary_by_phone_number()                           │
-│  - get_compliance_score_by_phone_number()                       │
-│  - ... and 4 more functions                                     │
+│  - get_customer_policy_profile_by_phone_number(phone)           │
+│  - get_customer_sentiment_by_phone_number(phone)                │
+│  - get_call_summary_by_phone_number(phone)                      │
+│  - get_compliance_score_by_phone_number(phone)                  │
+│  - get_call_history_by_phone_number(phone) + LIMIT              │
+│  - ... and 3 more functions                                     │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                  Dashboards & Agent Bricks Integration          │
-│  - Real-time analytics dashboards                               │
-│  - Multi-agent workflows with Agent Bricks                      │
-│  - Customer service automation                                  │
+│                  Dashboard Aggregation & Visualization          │
+│  - Pre-aggregated metrics (5 tables)                            │
+│  - AI/BI Dashboard (4 pages: Overview, Trends, Agents, Reasons) │
+│  - Real-time KPIs and analytics                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### AI Analysis Pipeline
+### Optional: Audio Transcription with Whisper
+
+The solution can be extended to process real audio files:
 
 ```
-Audio File → Whisper Transcription → AI Enrichment → Insights
+Audio Files → Whisper Transcription → AI Enrichment → Insights
               (Model Serving)        (AI Functions)    (Gold Table)
 ```
 
+**To enable audio processing:**
+1. Uncomment Whisper endpoint deployment in workflow
+2. Upload audio files to `raw_recordings` volume
+3. Enable Bronze/Silver layers in pipeline
+
 **Endpoints Used:**
-- **Whisper**: `whisper-v3-large-pytorch` (Model Serving endpoint)
+- **Whisper** (optional): `va_whisper_large_v3` (Model Serving endpoint)
 - **LLM Reasoning**: `databricks-claude-sonnet-4-5` (compliance, email generation)
 - **LLM Fast**: `databricks-gpt-5-nano` (classification, sentiment)
 
@@ -137,9 +136,9 @@ Audio File → Whisper Transcription → AI Enrichment → Insights
 ### Prerequisites
 
 - Databricks workspace with Unity Catalog enabled
-- Model Serving permissions (for Whisper endpoint deployment)
-- Access to Foundation Model endpoints (Claude, Llama)
-- GPU quota for Whisper endpoint (GPU_MEDIUM or GPU_LARGE)
+- Access to Foundation Model endpoints (Claude Sonnet 4.5)
+- (Optional) Model Serving permissions for Whisper endpoint
+- (Optional) GPU quota if processing real audio files
 
 ### Installation Steps
 
@@ -147,7 +146,7 @@ Audio File → Whisper Transcription → AI Enrichment → Insights
 
 2. **Configure the solution**
    ```python
-   # Edit config/config.py to set:
+   # Edit config/config.py widgets (or accept defaults):
    CATALOG = "call_center_analytics"
    SCHEMA = "main"
    VOLUME = "call_center_data"
@@ -159,17 +158,17 @@ Audio File → Whisper Transcription → AI Enrichment → Insights
    # Step 1: Initialize catalog, schema, volumes, lookup tables
    setup/00-setup.py
 
-   # Step 2: Deploy Whisper endpoint (~15 minutes)
-   setup/01-deploy-whisper-endpoint.py
-
-   # Step 3: (Optional) Generate demo data
+   # Step 2: Generate synthetic call data (50 realistic transcripts)
    setup/sample_data_generator.py
+
+   # Step 3: (Optional) Deploy Whisper endpoint for real audio processing
+   # setup/01-deploy-whisper-endpoint.py
    ```
 
-4. **Run the Lakeflow SDP pipeline:**
+4. **Run the Gold Layer AI Enrichment Pipeline:**
 
    ```bash
-   # Execute Bronze → Silver → Gold pipeline
+   # Execute AI enrichment on transcriptions_silver
    pipeline/02-sdp-bronze-silver-gold.py
    ```
 
@@ -195,7 +194,9 @@ Audio File → Whisper Transcription → AI Enrichment → Insights
        sentiment,
        summary,
        classification,
-       compliance_analysis.score as compliance_score
+       compliance_analysis.score as compliance_score,
+       phone_numbers,  -- Now an ARRAY type
+       email_addresses  -- Now an ARRAY type
    FROM call_center_analytics.main.call_analysis_gold
    LIMIT 10;
    ```
@@ -206,26 +207,23 @@ For detailed implementation steps, see [IMPLEMENTATION_GUIDE.md](./IMPLEMENTATIO
 
 ## 📊 Data Schema
 
-### Bronze Table: `raw_audio_files`
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `path` | STRING | Full path to audio file |
-| `content` | BINARY | Audio file binary content |
-| `length` | LONG | File size in bytes |
-| `modificationTime` | TIMESTAMP | Last modified timestamp |
-
 ### Silver Table: `transcriptions_silver`
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `file_name` | STRING | Original filename |
 | `call_id` | STRING | Unique call identifier |
 | `agent_id` | STRING | Agent identifier |
 | `call_datetime` | TIMESTAMP | Call date and time |
-| `transcription` | STRING | Full call transcript |
+| `customer_name` | STRING | Customer name |
+| `phone_number` | STRING | Customer phone number |
+| `email` | STRING | Customer email address |
+| `dob` | DATE | Customer date of birth |
+| `policy_number` | STRING | Policy number |
 | `duration_seconds` | DOUBLE | Call duration |
-| `path` | STRING | Original file path |
+| `transcription` | STRING | Full call transcript |
+| `filename` | STRING | Original filename |
+| `category` | STRING | Call category (general, fraud, hardship) |
+| `reason_for_call` | STRING | Reason for the call |
 
 ### Gold Table: `call_analysis_gold`
 
@@ -234,6 +232,11 @@ For detailed implementation steps, see [IMPLEMENTATION_GUIDE.md](./IMPLEMENTATIO
 | `call_id` | STRING | Unique call identifier |
 | `agent_id` | STRING | Agent identifier |
 | `call_datetime` | TIMESTAMP | Call date and time |
+| `customer_name` | STRING | Customer name |
+| `phone_number` | STRING | Original phone number |
+| `email` | STRING | Customer email |
+| `dob` | DATE | Customer date of birth |
+| `policy_number` | STRING | Policy number |
 | `transcription` | STRING | Full call transcript |
 | `duration_seconds` | DOUBLE | Call duration |
 | `sentiment` | STRING | AI-detected sentiment |
@@ -242,8 +245,10 @@ For detailed implementation steps, see [IMPLEMENTATION_GUIDE.md](./IMPLEMENTATIO
 | `entities` | STRUCT | Named entities (person, policy, date, phone, email) |
 | `masked_transcript` | STRING | PII-masked transcript |
 | `compliance_analysis` | STRUCT | Compliance score, violations, recommendations |
-| `follow_up_email` | STRUCT | AI-generated follow-up email (subject, body, priority) |
-| `customer_name` | STRING | Extracted customer name |
+| `follow_up_email` | STRUCT | AI-generated email (subject, body, priority) |
+| `phone_numbers` | ARRAY<STRING> | **Extracted phone numbers as ARRAY** |
+| `email_addresses` | ARRAY<STRING> | **Extracted email addresses as ARRAY** |
+| `dates_mentioned` | STRING | Extracted dates |
 | `policy_number_extracted` | STRING | Extracted policy number |
 
 ---
@@ -264,8 +269,8 @@ dbutils.widgets.dropdown("ENVIRONMENT", "dev", ["dev", "prod", "demo"])
 Configure AI endpoints in `config/config.py`:
 
 ```python
-# Whisper transcription endpoint
-WHISPER_ENDPOINT_NAME = "whisper-v3-large-pytorch"
+# Whisper transcription endpoint (optional)
+WHISPER_ENDPOINT_NAME = "va_whisper_large_v3"
 
 # Foundation Model endpoints for AI Functions
 LLM_ENDPOINT_REASONING = "databricks-claude-sonnet-4-5"  # Complex reasoning
@@ -291,39 +296,43 @@ This solution is designed for integration with **Agent Bricks Knowledge Assistan
 
 8 Unity Catalog Functions provide a secure, governed data access layer:
 
-1. `get_customer_policy_profile_by_phone_number(phone)`
-2. `get_customer_sentiment_by_phone_number(phone)`
-3. `get_customer_transcript_by_phone_number(phone)`
-4. `get_call_summary_by_phone_number(phone)`
-5. `get_compliance_score_by_phone_number(phone)`
-6. `get_follow_up_email_by_phone_number(phone)`
-7. `get_call_history_by_phone_number(phone, limit_count)`
-8. `search_calls_by_classification(call_reason, limit_count)`
+1. `get_customer_policy_profile_by_phone_number(phone)` - Returns customer profile
+2. `get_customer_sentiment_by_phone_number(phone)` - Returns sentiment
+3. `get_customer_transcript_by_phone_number(phone)` - Returns full transcript
+4. `get_call_summary_by_phone_number(phone)` - Returns AI summary
+5. `get_compliance_score_by_phone_number(phone)` - Returns compliance analysis
+6. `get_follow_up_email_by_phone_number(phone)` - Returns generated email JSON
+7. `get_call_history_by_phone_number(phone)` - Returns call history (apply LIMIT when querying)
+8. `search_calls_by_classification(call_reason)` - Searches by call reason (apply LIMIT when querying)
 
-### Agent Architecture
-
-```
-User Query → Agent Bricks → Specialized Agents → UC Functions → Gold Table
-                              ↓
-                  - Customer Service Agent
-                  - Policy Q&A Agent (with RAG)
-                  - Compliance Agent
+**Note:** Table-valued functions (7 & 8) do not take limit parameters. Apply LIMIT when querying:
+```sql
+SELECT * FROM get_call_history_by_phone_number('(555)-123-4567') LIMIT 5;
 ```
 
-**Note:** Agent Bricks handles all agent orchestration, tool routing, and conversation management. This solution provides the data layer via UC Functions.
+### Key Implementation Details
 
-### Mock Agents for Testing
-
-Mock agent endpoints are provided in `agents_mock/04-mock-agent-endpoints.py` for testing UC Functions before Agent Bricks deployment.
+- **ARRAY Types**: `phone_numbers` and `email_addresses` are stored as ARRAY<STRING> to support `ARRAY_CONTAINS` queries
+- **JSON Schema Responses**: Compliance scoring and email generation use structured JSON output
+- **No Speaker Labels**: Transcripts use natural conversation flow without "Agent:" or "Customer:" labels
 
 ---
 
 ## 📈 Dashboard & Analytics
 
-The solution includes pre-aggregated dashboard tables:
+The solution includes an **AI/BI Dashboard** with 4 pages:
 
-- **`dashboard_metrics`**: Real-time KPIs (call volume, sentiment, compliance)
-- **`dashboard_trends`**: Time-series trends (hourly/daily)
+1. **Overview**: KPIs, sentiment distribution, compliance breakdown, top call reasons
+2. **Trends**: Call volume trends, compliance score trends, duration trends
+3. **Agent Performance**: Compliance by agent, call volume, performance table
+4. **Call Reasons Analysis**: Call reason distribution, duration analysis, details table
+
+### Dashboard Tables
+
+Pre-aggregated tables for fast queries:
+
+- **`dashboard_metrics`**: Real-time KPIs (1 row with summary statistics)
+- **`dashboard_trends`**: Time-series trends (by date and hour)
 - **`dashboard_agent_performance`**: Agent-level performance metrics
 - **`dashboard_call_reasons`**: Call reason breakdown and analysis
 - **`dashboard_compliance_issues`**: Compliance score distribution
@@ -351,36 +360,38 @@ LIMIT 10
 
 ## 🔄 Workflow Orchestration
 
-The solution includes a Lakeflow workflow configuration (`config/pipeline_config.yaml`) that orchestrates:
+The solution includes a workflow configuration (`call-center-analytics-workflow.yml`) that orchestrates:
 
-1. Setup and initialization
-2. Whisper endpoint deployment
-3. SDP pipeline execution (Bronze → Silver → Gold)
-4. UC Functions creation
-5. Dashboard data preparation
+1. Setup and initialization (catalog, schema, volumes, lookup tables)
+2. Synthetic data generation (50 realistic call transcripts)
+3. (Optional) Whisper endpoint deployment
+4. Gold layer AI enrichment pipeline
+5. UC Functions creation (8 functions)
+6. Dashboard data preparation (5 aggregation tables)
 
 **Triggers:**
 - Manual execution
-- File arrival (new audio files uploaded)
-- Scheduled (e.g., daily at 2 AM)
+- Scheduled (e.g., daily at 2 AM for periodic data refresh)
+- (Optional) File arrival trigger for real audio files
 
 ---
 
-## 🧪 Demo Data Generation
+## 🧪 Synthetic Data Generation
 
-Generate synthetic call center data for testing:
+Generate 50 realistic call center scenarios:
 
 ```bash
-# Generate 50 synthetic calls with realistic transcripts
 setup/sample_data_generator.py
 ```
 
 Includes:
-- 5 fraud cases
+- 5 fraud attempt cases
 - 3 financial hardship cases
-- Various call reasons
-- Realistic sentiment distribution
-- Placeholder audio files
+- 14 different call reasons (claim status, billing, coverage, etc.)
+- Natural conversation format without speaker labels
+- Customer metadata (phone, email, DOB) embedded in transcripts
+- Explicit dates for accurate entity extraction
+- Realistic sentiment distribution (positive, neutral, negative)
 
 ---
 
@@ -392,7 +403,7 @@ Includes:
 - **Workers:** 1-4 (autoscaling)
 - **Photon:** Enabled
 
-### For Whisper Endpoint Deployment
+### For Whisper Endpoint Deployment (Optional)
 - **Workload Type:** GPU_MEDIUM (AWS) or GPU_LARGE (Azure)
 - **Workload Size:** Small
 - **Scale to Zero:** Enabled
@@ -403,7 +414,7 @@ Includes:
 
 The solution automatically installs required dependencies:
 
-- **mutagen** (>=1.47.0): Audio metadata extraction
+- **mutagen** (>=1.47.0): Audio metadata extraction (if processing audio)
 - **faker** (>=20.0.0): Synthetic data generation
 
 All AI functionality uses built-in Databricks AI Functions and Foundation Model endpoints—no additional ML libraries required.
@@ -420,6 +431,7 @@ All AI functionality uses built-in Databricks AI Functions and Foundation Model 
 ✅ **PII Protection**
 - Automated PII masking with `ai_mask()`
 - Sensitive fields masked in summaries and outputs
+- ARRAY types prevent accidental data leakage
 
 ✅ **Endpoint Security**
 - Model Serving endpoints with authentication
@@ -430,34 +442,34 @@ All AI functionality uses built-in Databricks AI Functions and Foundation Model 
 
 ## 🛠 Troubleshooting
 
-### Whisper Endpoint Deployment Issues
-**Problem:** Endpoint deployment times out or fails
+### UC Functions ARRAY_CONTAINS Errors
+**Problem:** UC Functions fail with "ARRAY_CONTAINS expects ARRAY type" error
 **Solution:**
-- Check GPU quota in workspace
-- Use `GPU_MEDIUM` for AWS, `GPU_LARGE` for Azure
-- Wait up to 30 minutes for initial deployment
-
-### Audio File Processing Issues
-**Problem:** Files not processed or transcription empty
-**Solution:**
-- Verify audio file format (WAV, MP3, FLAC supported)
-- Check file naming pattern: `{call_id}_{agent_id}_{datetime}.ext`
-- Ensure Whisper endpoint is in "Ready" state
+- Ensure Gold pipeline ran with latest code
+- Verify `phone_numbers` and `email_addresses` are ARRAY types
+- Re-run pipeline if needed: `pipeline/02-sdp-bronze-silver-gold.py`
 
 ### AI Function Errors
 **Problem:** `ai_query()` or `ai_classify()` fails
 **Solution:**
 - Verify Foundation Model endpoints are accessible
 - Check endpoint names in `config/config.py`
-- Ensure workspace has access to Foundation Models
+- Ensure workspace has access to Claude Sonnet 4.5
+
+### Dashboard Shows No Data
+**Problem:** Dashboard widgets empty or no data
+**Solution:**
+- Verify Gold table has data: `SELECT COUNT(*) FROM call_analysis_gold`
+- Re-run dashboard prep: `notebooks/05-prepare-dashboard-data.py`
+- Check that aggregation tables were created successfully
 
 ---
 
 ## 📚 Additional Resources
 
 - [Databricks AI Functions Documentation](https://docs.databricks.com/en/large-language-models/ai-functions.html)
-- [Lakeflow Pipelines Guide](https://docs.databricks.com/en/delta-live-tables/index.html)
 - [Unity Catalog Functions](https://docs.databricks.com/en/sql/language-manual/sql-ref-functions-udf.html)
+- [AI/BI Dashboards](https://docs.databricks.com/en/dashboards/index.html)
 - [Agent Framework](https://docs.databricks.com/en/generative-ai/agent-framework/index.html)
 
 ---
@@ -466,12 +478,12 @@ All AI functionality uses built-in Databricks AI Functions and Foundation Model 
 
 After successful deployment, you should have:
 
-- ✅ Whisper PyTorch endpoint deployed and ready
-- ✅ Lakeflow SDP pipeline processing audio files end-to-end
+- ✅ Synthetic call data with 50 realistic transcripts
 - ✅ Gold table with comprehensive AI enrichments
+- ✅ phone_numbers and email_addresses as ARRAY<STRING> types
 - ✅ 8 UC Functions ready for agent integration
-- ✅ Dashboard tables with aggregated metrics
-- ✅ Mock agent endpoints for testing
+- ✅ 5 dashboard aggregation tables with metrics
+- ✅ AI/BI Dashboard with 4 interactive pages
 
 ---
 
@@ -485,6 +497,7 @@ This solution accelerator is ideal for:
 - **Fraud Detection**: Identify suspicious calls and patterns
 - **Agent Training**: Identify coaching opportunities
 - **Regulatory Compliance**: Audit trails and compliance reporting
+- **Demo and Testing**: Synthetic data for proof-of-concepts
 
 ---
 
@@ -502,10 +515,10 @@ This solution accelerator is provided as-is for demonstration and educational pu
 
 1. Review the [IMPLEMENTATION_GUIDE.md](./IMPLEMENTATION_GUIDE.md) for step-by-step instructions
 2. Run `setup/00-setup.py` to initialize your environment
-3. Deploy the Whisper endpoint with `setup/01-deploy-whisper-endpoint.py`
-4. Execute the full pipeline with `pipeline/02-sdp-bronze-silver-gold.py`
+3. Generate synthetic data with `setup/sample_data_generator.py`
+4. Execute the AI enrichment pipeline with `pipeline/02-sdp-bronze-silver-gold.py`
 5. Create UC Functions with `tools/03-create-uc-tools.py`
-6. Build dashboards using the prepared data tables
+6. Prepare and view the AI/BI Dashboard
 
 For questions or support, contact your Databricks account team or visit the [Databricks Community](https://community.databricks.com/).
 

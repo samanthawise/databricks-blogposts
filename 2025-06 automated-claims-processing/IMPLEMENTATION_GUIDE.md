@@ -8,13 +8,14 @@ This guide provides detailed instructions for deploying the AI-Powered Call Cent
 ## 📋 Table of Contents
 
 1. [Prerequisites](#prerequisites)
-2. [Phase 1: Foundation & Endpoint Setup](#phase-1-foundation--endpoint-setup)
-3. [Phase 2: Core Pipeline Deployment](#phase-2-core-pipeline-deployment)
+2. [Phase 1: Foundation & Data Generation](#phase-1-foundation--data-generation)
+3. [Phase 2: Gold Layer AI Enrichment](#phase-2-gold-layer-ai-enrichment)
 4. [Phase 3: Agent Integration Setup](#phase-3-agent-integration-setup)
 5. [Phase 4: Dashboard & Analytics](#phase-4-dashboard--analytics)
 6. [Verification & Testing](#verification--testing)
 7. [Troubleshooting](#troubleshooting)
 8. [Production Deployment](#production-deployment)
+9. [Optional: Audio Processing Extension](#optional-audio-processing-extension)
 
 ---
 
@@ -24,9 +25,8 @@ This guide provides detailed instructions for deploying the AI-Powered Call Cent
 
 - ✅ **Databricks Workspace** (AWS, Azure, or GCP)
 - ✅ **Unity Catalog** enabled
-- ✅ **Model Serving** permissions
-- ✅ **Foundation Model** endpoints access (Claude, Llama)
-- ✅ **GPU Quota** for Whisper endpoint (GPU_MEDIUM or GPU_LARGE)
+- ✅ **Foundation Model** endpoints access (Claude Sonnet 4.5 recommended)
+- ✅ **GPU Quota** (optional - only needed for Whisper audio processing extension)
 
 ### User Permissions Required
 
@@ -34,7 +34,6 @@ This guide provides detailed instructions for deploying the AI-Powered Call Cent
 Workspace Level:
   - Can attach clusters
   - Can create clusters
-  - Can create Model Serving endpoints
 
 Unity Catalog Level:
   - CREATE CATALOG (or access to existing catalog)
@@ -51,13 +50,16 @@ Runtime: 14.3 LTS or later
 Node Type: i3.xlarge (4 cores, 30.5 GB RAM)
 Workers: 1-4 (autoscaling)
 Photon: Enabled
+Spark Conf:
+  spark.databricks.delta.optimizeWrite.enabled: "true"
+  spark.databricks.delta.autoCompact.enabled: "true"
 ```
 
 ---
 
-## Phase 1: Foundation & Endpoint Setup
+## Phase 1: Foundation & Data Generation
 
-**Estimated Time:** 30-45 minutes (including Whisper endpoint deployment)
+**Estimated Time:** 10-15 minutes
 
 ### Step 1.1: Import Notebooks
 
@@ -80,7 +82,6 @@ ENVIRONMENT = "dev"                     # Environment: dev, prod, demo
 ```
 
 3. **DO NOT** change endpoint names unless you have specific requirements:
-   - `WHISPER_ENDPOINT_NAME = "whisper-v3-large-pytorch"`
    - `LLM_ENDPOINT_REASONING = "databricks-claude-sonnet-4-5"`
    - `LLM_ENDPOINT_FAST = "databricks-gpt-5-nano"`
 
@@ -111,129 +112,106 @@ ENVIRONMENT = "dev"                     # Environment: dev, prod, demo
 - **Permissions Error**: Contact workspace admin for Unity Catalog permissions
 - **Endpoint Not Found**: Verify Foundation Model endpoints are enabled in workspace
 
-### Step 1.4: Deploy Whisper Endpoint
-
-1. Open notebook: `setup/01-deploy-whisper-endpoint.py`
-2. **Run All Cells**
-
-**What This Does:**
-- Deploys PyTorch Whisper v3 Large model to Model Serving
-- Configures GPU compute (GPU_MEDIUM for AWS, GPU_LARGE for Azure)
-- Enables scale-to-zero for cost optimization
-- Waits for endpoint to be ready
-- Tests endpoint with sample audio (if available)
-
-**Expected Duration:** 10-15 minutes for initial deployment
-
-**Expected Output:**
-```
-Deploying Whisper endpoint: whisper-v3-large-pytorch
-This may take 10-15 minutes...
-✓ Endpoint 'whisper-v3-large-pytorch' deployed successfully!
-✓ Endpoint 'whisper-v3-large-pytorch' is ready for inference!
-```
-
-**If Errors Occur:**
-- **GPU Quota Error**: Request GPU quota increase from cloud provider
-- **Timeout Error**: Wait longer (up to 30 minutes) or check endpoint status manually
-- **Already Exists**: Widget `action = use_existing` to skip deployment
-
-### Step 1.5: (Optional) Generate Demo Data
+### Step 1.4: Generate Synthetic Call Data
 
 1. Open notebook: `setup/sample_data_generator.py`
 2. **Run All Cells**
 
 **What This Does:**
-- Generates 50 synthetic call scenarios
-- Creates realistic call transcripts
-- Generates placeholder audio files
+- Generates 50 synthetic call scenarios with realistic transcripts
+- Creates customer metadata (phone numbers, emails, DOB, policy numbers)
+- Embeds entities naturally in conversation (no speaker labels)
+- Includes explicit dates in transcripts for entity extraction
 - Saves to `synthetic_call_data` table
+- Creates `transcriptions_silver` table ready for AI enrichment
 
 **Expected Output:**
 ```
 ✓ Generated 50 synthetic call records
-✓ Created 50 placeholder audio files
-✓ Saved synthetic call data to table
+✓ Saved synthetic call data to table: call_center_analytics.main.synthetic_call_data
+✓ Created silver layer table: call_center_analytics.main.transcriptions_silver
+  - Renamed 'transcript' to 'transcription' column
+  - 50 records
 ```
 
-**Skip This Step If:**
-- You have real audio files to process
-- You want to upload your own audio data
+**Data Characteristics:**
+- **50 calls total**: 5 fraud cases, 3 financial hardship cases, 42 general inquiries
+- **Natural conversation format**: No "Agent:" or "Customer:" labels
+- **Embedded metadata**: Phone numbers, emails, dates, policy numbers in transcript
+- **Realistic duration**: 60-600 seconds (1-10 minutes)
+- **Diverse scenarios**: Claims, billing, coverage, policy updates, fraud, hardship
 
 ---
 
-## Phase 2: Core Pipeline Deployment
+## Phase 2: Gold Layer AI Enrichment
 
-**Estimated Time:** 15-30 minutes (depends on audio file count)
+**Estimated Time:** 10-20 minutes (depends on AI endpoint performance)
 
-### Step 2.1: Upload Audio Files (If Using Real Data)
-
-1. Navigate to **Catalog** → **[Your Catalog]** → **[Your Schema]** → **Volumes** → **call_center_data**
-2. Open the **raw_recordings** directory
-3. Upload audio files (WAV, MP3, or FLAC format)
-
-**Audio File Naming Convention:**
-```
-{call_id}_{agent_id}_{YYYY-MM-DD_HH-MM-SS}.{ext}
-
-Examples:
-  ABC123_AGT001_2024-01-15_10-30-45.wav
-  XYZ789_AGT002_2024-02-20_14-22-10.mp3
-```
-
-**If File Names Don't Match Pattern:**
-- Files will still be ingested
-- Metadata parsing may fail (call_id, agent_id, datetime)
-- Manual metadata enrichment required post-processing
-
-### Step 2.2: Run Lakeflow SDP Pipeline
+### Step 2.1: Run Gold Layer AI Enrichment Pipeline
 
 1. Open notebook: `pipeline/02-sdp-bronze-silver-gold.py`
 2. **Run All Cells**
 
 **What This Does:**
 
-**Bronze Layer (Auto Loader):**
-- Incrementally ingests audio files from volume
-- Creates `raw_audio_files` table
-- Checkpoint-based exactly-once processing
-
-**Silver Layer (Transcription):**
-- Parses filename metadata (call_id, agent_id, datetime)
-- Transcribes audio using Whisper endpoint via `ai_query()`
-- Extracts audio duration
-- Creates `transcriptions_silver` table
+**Silver Layer (Loading):**
+- Reads from `transcriptions_silver` table
+- Validates data structure and transcription content
+- Prepares data for AI enrichment
 
 **Gold Layer (AI Enrichment):**
-- Applies comprehensive AI analysis:
-  - Sentiment analysis
-  - Call summarization
-  - Dynamic classification (from lookup table)
-  - Named entity recognition (person, policy, date, phone, email)
-  - PII masking
-  - Compliance scoring (with violations)
-  - Follow-up email generation (structured JSON)
-- Creates `call_analysis_gold` table
+Applies comprehensive AI analysis to each call transcript:
+1. **Sentiment Analysis**: Detect customer emotion using `ai_analyze_sentiment()`
+2. **Call Summarization**: Generate concise summaries using `ai_summarize()`
+3. **Dynamic Classification**: Categorize call reason using `ai_classify()` with lookup table categories
+4. **Named Entity Recognition (NER)**: Extract entities using `ai_extract()`:
+   - Customer name (person)
+   - Policy number
+   - Dates mentioned
+   - Phone numbers (extracted as ARRAY<STRING>)
+   - Email addresses (extracted as ARRAY<STRING>)
+5. **PII Masking**: Mask sensitive information using `ai_mask()`
+6. **Compliance Scoring**: Evaluate compliance using `ai_query()` with JSON schema:
+   - Overall score (0-100)
+   - Specific violations (array)
+   - Recommendations
+7. **Follow-up Email Generation**: Create structured emails using `ai_query()` with JSON schema:
+   - Subject line
+   - Body content
+   - Priority level
+   - Action required flag
+   - Follow-up date
+
+Creates `call_analysis_gold` table with all AI enrichments.
 
 **Expected Duration:**
-- Bronze: 1-5 minutes
-- Silver: 5-15 minutes (depends on audio count and duration)
-- Gold: 5-10 minutes (AI Functions processing)
+- Silver load: 1-2 minutes
+- Gold enrichment: 10-20 minutes (AI Functions processing)
 
 **Expected Output:**
 ```
-✓ Bronze layer complete: raw_audio_files
-📊 Bronze Table: 50 audio files
+Loading transcription data from silver layer...
+✓ Loaded 50 transcriptions from: call_center_analytics.main.transcriptions_silver
 
-✓ Silver layer complete: transcriptions_silver
-📊 Silver Table: 50 transcribed calls
+Applying AI enrichment with multiple AI functions...
+✓ Intermediate Gold layer complete: call_center_analytics.main.call_analysis_gold_intermediate
 
-✓ Intermediate Gold layer complete
-✓ Final Gold layer complete: call_analysis_gold
-📊 Gold Table: 50 enriched calls
+Applying advanced AI enrichment (compliance scoring, email generation)...
+✓ Final Gold layer complete: call_center_analytics.main.call_analysis_gold
+
+📊 Gold Table Statistics:
+  Table: call_center_analytics.main.call_analysis_gold
+  Total enriched calls: 50
 
 ✓ Pipeline complete: Bronze → Silver → Gold
 ```
+
+**IMPORTANT - ARRAY Types:**
+
+The Gold table uses **ARRAY<STRING>** types for phone_numbers and email_addresses (not plain STRING). This enables:
+- Multiple values per call (e.g., customer mentions multiple phone numbers)
+- ARRAY_CONTAINS queries in UC Functions
+- Proper data structure for agent integration
 
 **Sample Gold Table Query:**
 ```sql
@@ -243,6 +221,8 @@ SELECT
     sentiment,
     summary,
     classification,
+    phone_numbers,                          -- ARRAY<STRING>
+    email_addresses,                        -- ARRAY<STRING>
     compliance_analysis.score as compliance_score,
     follow_up_email.subject
 FROM call_center_analytics.main.call_analysis_gold
@@ -250,10 +230,10 @@ LIMIT 10;
 ```
 
 **If Errors Occur:**
-- **No Audio Files**: Upload audio or run sample data generator
-- **Whisper Endpoint Error**: Verify endpoint is in "Ready" state
-- **AI Function Error**: Check Foundation Model endpoint access
-- **Transcription Empty**: Verify audio file format and content
+- **Silver Table Not Found**: Re-run `setup/sample_data_generator.py`
+- **AI Function Error**: Check Foundation Model endpoint access and availability
+- **Timeout Error**: Increase notebook timeout or reduce data volume
+- **Empty Enrichments**: Verify LLM endpoint is responding correctly
 
 ---
 
@@ -267,15 +247,15 @@ LIMIT 10;
 2. **Run All Cells**
 
 **What This Does:**
-- Creates 8 SQL-based UC Functions:
-  1. `get_customer_policy_profile_by_phone_number(phone)`
-  2. `get_customer_sentiment_by_phone_number(phone)`
-  3. `get_customer_transcript_by_phone_number(phone)`
-  4. `get_call_summary_by_phone_number(phone)`
-  5. `get_compliance_score_by_phone_number(phone)`
-  6. `get_follow_up_email_by_phone_number(phone)`
-  7. `get_call_history_by_phone_number(phone, limit_count)`
-  8. `search_calls_by_classification(call_reason, limit_count)`
+- Creates 8 SQL-based UC Functions for agent integration:
+  1. `get_customer_policy_profile_by_phone_number(phone)` - Returns customer profile
+  2. `get_customer_sentiment_by_phone_number(phone)` - Returns sentiment from latest call
+  3. `get_customer_transcript_by_phone_number(phone)` - Returns full transcript
+  4. `get_call_summary_by_phone_number(phone)` - Returns AI-generated summary
+  5. `get_compliance_score_by_phone_number(phone)` - Returns compliance analysis struct
+  6. `get_follow_up_email_by_phone_number(phone)` - Returns email JSON
+  7. `get_call_history_by_phone_number(phone)` - Returns call history table
+  8. `search_calls_by_classification(call_reason)` - Search calls by reason
 
 **Expected Output:**
 ```
@@ -291,42 +271,31 @@ LIMIT 10;
 Total UC Functions: 8
 ```
 
+**IMPORTANT - LIMIT Usage Pattern:**
+
+Table-valued functions (7 and 8) do NOT accept limit parameters. Apply LIMIT when querying:
+
+```sql
+-- CORRECT: Apply LIMIT when calling the function
+SELECT * FROM get_call_history_by_phone_number('(555)-123-4567') LIMIT 5;
+SELECT * FROM search_calls_by_classification('Claim Status Inquiry') LIMIT 10;
+
+-- INCORRECT: Functions do not accept limit_count parameter
+-- SELECT * FROM get_call_history_by_phone_number('(555)-123-4567', 5);  -- ERROR!
+```
+
 **Test UC Functions:**
 ```sql
--- Test with a phone number from your data
+-- Get a sample phone number from Gold table
+SELECT phone_numbers[0] as sample_phone
+FROM call_center_analytics.main.call_analysis_gold
+WHERE SIZE(phone_numbers) > 0
+LIMIT 1;
+
+-- Test with that phone number
 SELECT get_customer_sentiment_by_phone_number('(555)-123-4567');
-SELECT * FROM get_call_history_by_phone_number('(555)-123-4567', 5);
+SELECT * FROM get_call_history_by_phone_number('(555)-123-4567') LIMIT 5;
 ```
-
-### Step 3.2: Test Mock Agent Endpoints
-
-1. Open notebook: `agents_mock/04-mock-agent-endpoints.py`
-2. **Run All Cells**
-
-**What This Does:**
-- Creates mock agent classes for testing:
-  - MockCustomerServiceAgent
-  - MockPolicyQAAgent
-  - MockComplianceAgent
-  - MockSupervisorAgent
-- Demonstrates agent integration patterns
-- Documents Agent Bricks integration requirements
-
-**Expected Output:**
-```
-Mock Agent Response:
-agent: Customer Service Agent
-response: Thank you for contacting VitalGuard Insurance...
-mock: True
-
-Mock Customer Context:
-phone_number: (555)-123-4567
-profile: Mock Customer Profile
-sentiment: Neutral
-mock: True
-```
-
-**Note:** These are placeholder agents for testing. Production agents will be handled by the external Agent Bricks Knowledge Assistant system, which manages all orchestration and agentic workflows.
 
 ---
 
@@ -340,70 +309,95 @@ mock: True
 2. **Run All Cells**
 
 **What This Does:**
-- Creates aggregated dashboard tables:
-  - `dashboard_metrics`: Overall statistics
-  - `dashboard_trends`: Time-series trends (hourly)
-  - `dashboard_agent_performance`: Agent-level metrics
-  - `dashboard_call_reasons`: Call reason analysis
-  - `dashboard_compliance_issues`: Compliance distribution
+- Creates 5 pre-aggregated dashboard tables optimized for visualization:
+  1. `dashboard_metrics`: Overall KPIs (total calls, avg compliance, sentiment counts)
+  2. `dashboard_trends`: Time-series trends by date and hour
+  3. `dashboard_agent_performance`: Agent-level metrics and performance
+  4. `dashboard_call_reasons`: Call reason distribution and analysis
+  5. `dashboard_compliance_issues`: Compliance score distribution by range
 
 **Expected Output:**
 ```
 ✓ Created: dashboard_metrics (1 record)
-✓ Created: dashboard_trends (24 time periods)
+✓ Created: dashboard_trends (varies by time range)
 ✓ Created: dashboard_agent_performance (5 agents)
 ✓ Created: dashboard_call_reasons (18 reasons)
 ✓ Created: dashboard_compliance_issues (5 ranges)
 ```
 
-### Step 4.2: Build Databricks Dashboard
+### Step 4.2: Build AI/BI Dashboard
+
+**Option 1: Automated Dashboard Creation (Recommended)**
+
+If using the MCP databricks-aibi-dashboards skill with Databricks SDK:
+
+1. Dashboard is created programmatically with 4 pages:
+   - **Overview**: KPIs, sentiment breakdown, compliance distribution, top call reasons
+   - **Trends**: Call volume over time, compliance trends, duration analysis
+   - **Agent Performance**: Compliance by agent, call volume, performance table
+   - **Call Reasons Analysis**: Distribution, duration by reason, detailed table
+
+2. Dashboard uses pre-aggregated tables for fast rendering
+
+**Option 2: Manual Dashboard Creation**
 
 1. Navigate to **Dashboards** in Databricks UI
 2. Click **Create Dashboard**
 3. Name it: "Call Center Analytics Dashboard"
-4. Add visualizations:
+4. Add visualizations using the dashboard aggregation tables
 
 **Recommended Widgets:**
 
-**KPI Cards:**
-- Total Calls: `SELECT total_calls FROM dashboard_metrics`
-- Average Compliance: `SELECT avg_compliance_score FROM dashboard_metrics`
-- Positive Sentiment %: `SELECT ROUND(100.0 * positive_sentiment_count / total_calls, 2) FROM dashboard_metrics`
+**KPI Cards (from dashboard_metrics):**
+```sql
+SELECT total_calls FROM call_center_analytics.main.dashboard_metrics;
+SELECT ROUND(avg_compliance_score, 1) FROM call_center_analytics.main.dashboard_metrics;
+SELECT ROUND(100.0 * positive_sentiment_count / total_calls, 1) as positive_pct
+FROM call_center_analytics.main.dashboard_metrics;
+```
 
-**Line Chart - Call Volume Trend:**
+**Line Chart - Call Volume Trend (from dashboard_trends):**
 ```sql
 SELECT call_date, call_hour, call_count
-FROM dashboard_trends
-ORDER BY call_date, call_hour
+FROM call_center_analytics.main.dashboard_trends
+ORDER BY call_date, call_hour;
 ```
 
-**Pie Chart - Sentiment Distribution:**
+**Pie Chart - Sentiment Distribution (from dashboard_metrics):**
 ```sql
-SELECT
-    'Positive' as sentiment, positive_sentiment_count as count
-FROM dashboard_metrics
+SELECT 'Positive' as sentiment, positive_sentiment_count as count
+FROM call_center_analytics.main.dashboard_metrics
 UNION ALL
-SELECT 'Negative', negative_sentiment_count FROM dashboard_metrics
+SELECT 'Neutral', neutral_sentiment_count
+FROM call_center_analytics.main.dashboard_metrics
 UNION ALL
-SELECT 'Neutral', neutral_sentiment_count FROM dashboard_metrics
+SELECT 'Negative', negative_sentiment_count
+FROM call_center_analytics.main.dashboard_metrics;
 ```
 
-**Bar Chart - Top Call Reasons:**
+**Bar Chart - Top Call Reasons (from dashboard_call_reasons):**
 ```sql
 SELECT call_reason, call_count
-FROM dashboard_call_reasons
+FROM call_center_analytics.main.dashboard_call_reasons
 ORDER BY call_count DESC
-LIMIT 10
+LIMIT 10;
 ```
 
-**Bar Chart - Agent Performance:**
+**Bar Chart - Agent Performance (from dashboard_agent_performance):**
 ```sql
 SELECT agent_id, avg_compliance_score, total_calls
-FROM dashboard_agent_performance
-ORDER BY avg_compliance_score DESC
+FROM call_center_analytics.main.dashboard_agent_performance
+ORDER BY avg_compliance_score DESC;
 ```
 
-5. Set dashboard refresh schedule (e.g., hourly)
+**Table - Compliance Issues (from dashboard_compliance_issues):**
+```sql
+SELECT compliance_range, call_count, percentage
+FROM call_center_analytics.main.dashboard_compliance_issues
+ORDER BY compliance_range;
+```
+
+5. Set dashboard refresh schedule (e.g., hourly or daily)
 
 ---
 
@@ -411,65 +405,95 @@ ORDER BY avg_compliance_score DESC
 
 ### End-to-End Verification Checklist
 
-- [ ] **Bronze Table**: Audio files ingested
-- [ ] **Silver Table**: Transcriptions generated
-- [ ] **Gold Table**: AI enrichments applied
-- [ ] **UC Functions**: Created and testable
-- [ ] **Dashboard Tables**: Populated with metrics
-- [ ] **Dashboard**: Built and rendering
+- [ ] **Setup Complete**: Catalog, schema, volume, lookup tables created
+- [ ] **Synthetic Data**: `synthetic_call_data` and `transcriptions_silver` tables populated
+- [ ] **Gold Table**: `call_analysis_gold` table with AI enrichments
+- [ ] **ARRAY Types**: `phone_numbers` and `email_addresses` are ARRAY<STRING>
+- [ ] **UC Functions**: 8 functions created and testable
+- [ ] **Dashboard Tables**: 5 aggregation tables populated
+- [ ] **Dashboard**: Built and rendering (manual or automated)
 
 ### Detailed Verification Queries
 
-**1. Verify Bronze Layer:**
+**1. Verify Synthetic Data Generation:**
 ```sql
-SELECT COUNT(*) as total_files FROM call_center_analytics.main.raw_audio_files;
+SELECT COUNT(*) as total_calls
+FROM call_center_analytics.main.synthetic_call_data;
+
+SELECT COUNT(*) as total_transcriptions
+FROM call_center_analytics.main.transcriptions_silver;
+
+-- Should show 50 calls each
 ```
 
-**2. Verify Silver Layer:**
-```sql
-SELECT
-    call_id,
-    agent_id,
-    LENGTH(transcription) as transcript_length,
-    duration_seconds
-FROM call_center_analytics.main.transcriptions_silver
-LIMIT 5;
-```
-
-**3. Verify Gold Layer - AI Enrichments:**
+**2. Verify Gold Layer - AI Enrichments:**
 ```sql
 SELECT
     call_id,
     sentiment,
     classification,
+    LENGTH(summary) as summary_length,
     compliance_analysis.score as compliance_score,
-    CASE
-        WHEN LENGTH(summary) > 0 THEN 'Yes'
-        ELSE 'No'
-    END as has_summary,
-    CASE
-        WHEN follow_up_email.subject IS NOT NULL THEN 'Yes'
-        ELSE 'No'
-    END as has_email
+    SIZE(phone_numbers) as phone_count,
+    SIZE(email_addresses) as email_count,
+    follow_up_email.subject IS NOT NULL as has_email
 FROM call_center_analytics.main.call_analysis_gold
 LIMIT 5;
 ```
 
+**3. Verify ARRAY Types (CRITICAL):**
+```sql
+-- This query should work if phone_numbers is ARRAY<STRING>
+SELECT call_id, phone_numbers[0] as first_phone
+FROM call_center_analytics.main.call_analysis_gold
+WHERE SIZE(phone_numbers) > 0
+LIMIT 5;
+
+-- Verify ARRAY_CONTAINS works (used by UC Functions)
+SELECT call_id
+FROM call_center_analytics.main.call_analysis_gold
+WHERE ARRAY_CONTAINS(phone_numbers, '(555)-123-4567');
+```
+
+**If ARRAY_CONTAINS fails with "expects ARRAY type" error:**
+- The Gold table was created with STRING type instead of ARRAY<STRING>
+- Re-run the Gold layer pipeline: `pipeline/02-sdp-bronze-silver-gold.py`
+- Verify the pipeline wraps extracted values in F.array()
+
 **4. Test UC Functions:**
 ```sql
--- Get a sample phone number from Gold table
-SELECT DISTINCT phone_numbers[0] as phone
+-- Get a sample phone number
+SELECT phone_numbers[0] as sample_phone
 FROM call_center_analytics.main.call_analysis_gold
 WHERE SIZE(phone_numbers) > 0
 LIMIT 1;
 
--- Test with that phone number
-SELECT get_customer_sentiment_by_phone_number('<phone-from-above>');
+-- Test scalar functions
+SELECT get_customer_sentiment_by_phone_number('(555)-123-4567');
+SELECT get_call_summary_by_phone_number('(555)-123-4567');
+
+-- Test table-valued functions (with LIMIT)
+SELECT * FROM get_call_history_by_phone_number('(555)-123-4567') LIMIT 5;
+SELECT * FROM search_calls_by_classification('Claim Status Inquiry') LIMIT 10;
 ```
 
 **5. Verify Dashboard Data:**
 ```sql
-SELECT * FROM call_center_analytics.main.dashboard_metrics;
+-- Check all dashboard tables exist and have data
+SELECT 'dashboard_metrics' as table_name, COUNT(*) as row_count
+FROM call_center_analytics.main.dashboard_metrics
+UNION ALL
+SELECT 'dashboard_trends', COUNT(*)
+FROM call_center_analytics.main.dashboard_trends
+UNION ALL
+SELECT 'dashboard_agent_performance', COUNT(*)
+FROM call_center_analytics.main.dashboard_agent_performance
+UNION ALL
+SELECT 'dashboard_call_reasons', COUNT(*)
+FROM call_center_analytics.main.dashboard_call_reasons
+UNION ALL
+SELECT 'dashboard_compliance_issues', COUNT(*)
+FROM call_center_analytics.main.dashboard_compliance_issues;
 ```
 
 ---
@@ -478,25 +502,28 @@ SELECT * FROM call_center_analytics.main.dashboard_metrics;
 
 ### Common Issues
 
-#### Issue 1: Whisper Endpoint Not Ready
+#### Issue 1: ARRAY_CONTAINS Type Mismatch Error
 
 **Symptoms:**
-- Silver layer fails with endpoint error
-- `ai_query()` returns empty or error
+- UC Functions fail with "ARRAY_CONTAINS expects ARRAY type" error
+- Query like `ARRAY_CONTAINS(phone_numbers, '...')` fails
+
+**Root Cause:**
+- The Gold table has `phone_numbers` as STRING instead of ARRAY<STRING>
+- Old pipeline code didn't wrap extracted values in arrays
 
 **Solutions:**
-1. Check endpoint status:
-   ```python
-   from databricks.sdk import WorkspaceClient
-   w = WorkspaceClient()
-   endpoint = w.serving_endpoints.get("whisper-v3-large-pytorch")
-   print(endpoint.state)
+1. Re-run the Gold layer pipeline: `pipeline/02-sdp-bronze-silver-gold.py`
+2. Verify the pipeline output shows ARRAY types:
+   ```sql
+   DESCRIBE call_center_analytics.main.call_analysis_gold;
+   -- phone_numbers should show: array<string>
+   -- email_addresses should show: array<string>
    ```
-2. Wait for endpoint to reach "READY" state (can take 15-30 min)
-3. Restart endpoint if stuck:
+3. If still STRING type, check the pipeline code uses:
    ```python
-   w.serving_endpoints.delete("whisper-v3-large-pytorch")
-   # Re-run 01-deploy-whisper-endpoint.py
+   .withColumn("phone_numbers", F.array(F.col("entities.phone")))
+   .withColumn("email_addresses", F.array(F.col("entities.email")))
    ```
 
 #### Issue 2: AI Functions Failing
@@ -512,21 +539,24 @@ SELECT * FROM call_center_analytics.main.dashboard_metrics;
    ```
 2. Check workspace Foundation Model settings
 3. Contact workspace admin to enable Foundation Models
+4. Verify endpoint name in config matches available endpoints
 
-#### Issue 3: Empty Transcriptions
+#### Issue 3: Empty AI Enrichments
 
 **Symptoms:**
-- Silver table has records but `transcription` column is empty
+- Gold table created but AI columns (sentiment, summary, etc.) are NULL
 - No errors in pipeline
 
 **Solutions:**
-1. Verify audio file format (use WAV, MP3, or FLAC)
-2. Check audio file content (not corrupted)
-3. Test Whisper endpoint manually:
+1. Check LLM endpoint availability and response times
+2. Verify transcription data has actual content:
    ```sql
-   SELECT ai_query('whisper-v3-large-pytorch', <binary-content>);
+   SELECT call_id, LENGTH(transcription) as length
+   FROM call_center_analytics.main.transcriptions_silver
+   LIMIT 5;
    ```
-4. Check Whisper endpoint logs for errors
+3. Test AI Functions manually on sample transcript
+4. Check for timeout issues in notebook execution
 
 #### Issue 4: UC Functions Not Found
 
@@ -554,26 +584,71 @@ SELECT * FROM call_center_analytics.main.dashboard_metrics;
 2. If Gold table empty, re-run pipeline: `pipeline/02-sdp-bronze-silver-gold.py`
 3. Re-run dashboard prep: `notebooks/05-prepare-dashboard-data.py`
 
+#### Issue 6: Synthetic Data Generation Fails
+
+**Symptoms:**
+- `sample_data_generator.py` fails with import or library errors
+
+**Solutions:**
+1. Install missing library:
+   ```python
+   %pip install faker>=20.0.0
+   dbutils.library.restartPython()
+   ```
+2. Verify lookup tables exist (run `setup/00-setup.py` first)
+3. Check cluster has internet access for Faker library
+
 ---
 
 ## Production Deployment
 
 ### Workflow Orchestration
 
-1. **Create Lakeflow Workflow:**
-   - Use `config/pipeline_config.yaml` as template
-   - Customize cluster configuration for production
-   - Set up file arrival trigger for `raw_recordings` volume
+**Using the Provided Workflow YAML:**
 
-2. **Configure Alerts:**
-   - Workflow failure notifications
-   - Compliance score threshold alerts
-   - Endpoint health monitoring
+1. **Customize Workflow Configuration:**
+   - Open `call-center-analytics-workflow.yml`
+   - Replace placeholders:
+     - `<USERNAME>`: Your Databricks username
+     - `<DATA_ENGINEERING_EMAIL>`: Email for notifications
+     - `<ONCALL_EMAIL>`: Email for failure alerts
+     - `<DATA_ENGINEERING_TEAM_EMAIL>`: Email for access control
 
-3. **Schedule Maintenance:**
-   - Daily pipeline runs (if batch processing)
-   - Weekly dashboard refresh
-   - Monthly lookup table updates
+2. **Deploy Workflow:**
+
+   **Option A: Databricks CLI**
+   ```bash
+   pip install databricks-cli
+   databricks configure --token
+   databricks jobs create --json-file call-center-analytics-workflow.json
+   ```
+
+   **Option B: Databricks SDK (Python)**
+   ```python
+   from databricks.sdk import WorkspaceClient
+   import yaml
+
+   w = WorkspaceClient()
+
+   with open('call-center-analytics-workflow.yml') as f:
+       workflow_config = yaml.safe_load(f)
+
+   job = w.jobs.create(**workflow_config)
+   print(f"Created workflow: {job.job_id}")
+   ```
+
+3. **Workflow Tasks:**
+   - **Task 1**: Setup infrastructure (catalog, schema, volumes, lookup tables)
+   - **Task 2**: Generate synthetic data (50 calls with transcripts)
+   - **Task 3**: *(Optional, commented out)* Deploy Whisper endpoint
+   - **Task 4**: Gold layer AI enrichment (sentiment, NER, compliance, email)
+   - **Task 5**: Create Unity Catalog Functions (8 functions)
+   - **Task 6**: Prepare dashboard aggregation tables (5 tables)
+
+4. **Configure Triggers:**
+   - **Schedule**: Daily at 2 AM UTC (currently PAUSED)
+   - **Manual**: Run on-demand from UI or API
+   - **File Arrival**: *(Optional)* Enable for audio file processing
 
 ### Performance Optimization
 
@@ -581,35 +656,79 @@ SELECT * FROM call_center_analytics.main.dashboard_metrics;
 
 1. **Cluster Scaling:**
    - Increase worker count (4-8 workers)
-   - Use larger node types (i3.2xlarge)
-   - Enable cluster autoscaling
+   - Use larger node types (i3.2xlarge or larger)
+   - Enable cluster autoscaling (min 2, max 8)
 
-2. **Whisper Endpoint:**
-   - Increase endpoint size (Medium or Large)
-   - Disable scale-to-zero for 24/7 availability
-   - Monitor inference latency
-
-3. **Pipeline Optimization:**
-   - Partition Gold table by `call_date`
-   - Enable Z-ORDER on frequently queried columns
+2. **Pipeline Optimization:**
+   - Partition Gold table by `DATE(call_datetime)`
+   - Enable Z-ORDER on frequently queried columns (agent_id, classification)
    - Use Delta caching for dashboard queries
+   - Increase parallelism for AI enrichment processing
+
+3. **LLM Endpoint Optimization:**
+   - Monitor endpoint latency and throughput
+   - Consider provisioned throughput for high volume
+   - Implement retry logic for transient failures
 
 ### Security Hardening
 
 1. **Access Control:**
    - Restrict catalog/schema access to authorized users
-   - Use UC Function grants for agent access
-   - Enable audit logging
+   - Use UC Function grants for agent access:
+     ```sql
+     GRANT EXECUTE ON FUNCTION get_customer_sentiment_by_phone_number TO `agent@company.com`;
+     ```
+   - Enable audit logging on UC Functions
 
 2. **Data Protection:**
-   - Ensure PII masking is enabled
+   - Verify PII masking is working correctly
    - Review and customize compliance guidelines
-   - Encrypt sensitive columns
+   - Consider column-level encryption for sensitive fields
+   - Implement data retention policies
 
-3. **Endpoint Security:**
-   - Enable endpoint authentication
-   - Use private networking for Model Serving
-   - Rotate endpoint tokens regularly
+3. **Monitoring:**
+   - Set up alerts for pipeline failures
+   - Monitor compliance score trends
+   - Track AI endpoint performance and costs
+   - Enable Delta table version history
+
+---
+
+## Optional: Audio Processing Extension
+
+**If you want to process real audio files in the future:**
+
+### Step 1: Deploy Whisper Endpoint
+
+1. Open notebook: `setup/01-deploy-whisper-endpoint.py`
+2. **Run All Cells**
+
+**What This Does:**
+- Deploys PyTorch Whisper v3 Large model to Model Serving
+- Configures GPU compute (GPU_MEDIUM for AWS, GPU_LARGE for Azure)
+- Enables scale-to-zero for cost optimization
+- Takes 10-15 minutes for initial deployment
+
+**Expected Output:**
+```
+Deploying Whisper endpoint: whisper-v3-large-pytorch
+✓ Endpoint deployed successfully!
+✓ Endpoint is ready for inference!
+```
+
+### Step 2: Enable Audio Ingestion in Pipeline
+
+1. Open `pipeline/02-sdp-bronze-silver-gold.py`
+2. Uncomment the Bronze layer code (lines for audio file ingestion)
+3. Uncomment the Whisper transcription code in Silver layer
+4. Upload audio files to `/Volumes/call_center_analytics/main/call_center_data/raw_recordings/`
+
+### Step 3: Enable File Arrival Trigger
+
+1. Open `call-center-analytics-workflow.yml`
+2. Uncomment the `deploy_whisper_endpoint` task
+3. Uncomment the file arrival trigger configuration
+4. Update the workflow with new configuration
 
 ---
 
@@ -617,42 +736,48 @@ SELECT * FROM call_center_analytics.main.dashboard_metrics;
 
 After successful deployment:
 
-1. **Integrate Agent Bricks:**
-   - Register UC Functions with Agent Bricks
-   - Agent Bricks will handle all orchestration and workflows
-   - Deploy Customer Service Agent
+1. **Integrate with Agent Bricks:**
+   - Register UC Functions with Agent Bricks Knowledge Assistant
+   - Configure agent workflows for customer service automation
+   - Deploy multi-agent orchestration with Supervisor Agents
 
 2. **Customize for Your Use Case:**
    - Add custom call reasons to lookup table
-   - Extend compliance guidelines
-   - Modify AI prompts and schemas
+   - Extend compliance guidelines with organization-specific rules
+   - Modify AI prompts for domain-specific analysis
+   - Adjust synthetic data generator for testing scenarios
 
 3. **Scale to Production:**
-   - Increase cluster size and endpoint capacity
+   - Enable scheduled workflow runs
    - Set up monitoring and alerting
-   - Configure automated testing
+   - Configure data retention and archival
+   - Implement automated testing and validation
 
 4. **Expand Capabilities:**
-   - Add Vector Search for policy documents
-   - Implement real-time streaming
-   - Build custom agent workflows
+   - Add Vector Search for policy documents and knowledge base
+   - Implement real-time streaming for live call analysis
+   - Build custom agent workflows for specialized use cases
+   - Integrate with external CRM and ticketing systems
 
 ---
 
 ## Support & Resources
 
 - **Documentation**: [README.md](./README.md)
+- **Workflow Configuration**: [call-center-analytics-workflow.yml](./call-center-analytics-workflow.yml)
 - **Databricks Docs**: https://docs.databricks.com
+- **AI Functions**: https://docs.databricks.com/en/large-language-models/ai-functions.html
+- **Unity Catalog**: https://docs.databricks.com/en/data-governance/unity-catalog/
 - **Community**: https://community.databricks.com
 - **Support**: Contact your Databricks account team
 
 ---
 
 **Implementation Time Estimate:**
-- **Phase 1**: 30-45 minutes
-- **Phase 2**: 15-30 minutes
-- **Phase 3**: 5-10 minutes
-- **Phase 4**: 5-10 minutes
-- **Total**: ~1-1.5 hours (excluding Whisper endpoint deployment time)
+- **Phase 1**: 10-15 minutes (setup + synthetic data)
+- **Phase 2**: 10-20 minutes (AI enrichment)
+- **Phase 3**: 5-10 minutes (UC Functions)
+- **Phase 4**: 5-10 minutes (dashboard)
+- **Total**: ~30-55 minutes (excluding optional Whisper deployment)
 
 Good luck with your implementation! 🚀
