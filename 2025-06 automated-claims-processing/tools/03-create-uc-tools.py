@@ -267,8 +267,7 @@ print("✓ Created: get_follow_up_email_by_phone_number()")
 
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE FUNCTION get_call_history_by_phone_number(
-# MAGIC   phone STRING,
-# MAGIC   limit_count INT
+# MAGIC   phone STRING
 # MAGIC )
 # MAGIC RETURNS TABLE (
 # MAGIC   call_id STRING,
@@ -279,7 +278,7 @@ print("✓ Created: get_follow_up_email_by_phone_number()")
 # MAGIC   summary STRING,
 # MAGIC   duration_seconds DOUBLE
 # MAGIC )
-# MAGIC COMMENT 'Return call history (last N calls) for a given phone number'
+# MAGIC COMMENT 'Return call history for a given phone number. Use LIMIT when querying to control number of results.'
 # MAGIC LANGUAGE SQL
 # MAGIC RETURN (
 # MAGIC   SELECT
@@ -293,14 +292,14 @@ print("✓ Created: get_follow_up_email_by_phone_number()")
 # MAGIC   FROM call_analysis_gold
 # MAGIC   WHERE ARRAY_CONTAINS(phone_numbers, phone)
 # MAGIC   ORDER BY call_datetime DESC
-# MAGIC   LIMIT limit_count
 # MAGIC );
 
 # COMMAND ----------
 
 # DBTITLE 1,Test Function 7
 # %sql
-# SELECT * FROM get_call_history_by_phone_number('(555)-123-4567', 5)
+# -- Usage: Apply LIMIT when querying the function
+# SELECT * FROM get_call_history_by_phone_number('(555)-123-4567') LIMIT 5
 
 print("✓ Created: get_call_history_by_phone_number()")
 
@@ -315,8 +314,7 @@ print("✓ Created: get_call_history_by_phone_number()")
 
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE FUNCTION search_calls_by_classification(
-# MAGIC   call_reason STRING,
-# MAGIC   limit_count INT
+# MAGIC   call_reason STRING
 # MAGIC )
 # MAGIC RETURNS TABLE (
 # MAGIC   call_id STRING,
@@ -327,7 +325,7 @@ print("✓ Created: get_call_history_by_phone_number()")
 # MAGIC   summary STRING,
 # MAGIC   compliance_score INT
 # MAGIC )
-# MAGIC COMMENT 'Search calls by classification/call reason (e.g., "Claim status inquiry")'
+# MAGIC COMMENT 'Search calls by classification/call reason. Use LIMIT when querying to control number of results.'
 # MAGIC LANGUAGE SQL
 # MAGIC RETURN (
 # MAGIC   SELECT
@@ -341,7 +339,6 @@ print("✓ Created: get_call_history_by_phone_number()")
 # MAGIC   FROM call_analysis_gold
 # MAGIC   WHERE classification = call_reason
 # MAGIC   ORDER BY call_datetime DESC
-# MAGIC   LIMIT limit_count
 # MAGIC );
 
 # COMMAND ----------
@@ -443,14 +440,14 @@ function_docs = {
         "description": "Get AI-generated follow-up email"
     },
     "get_call_history_by_phone_number": {
-        "params": "phone: STRING, limit_count: INT",
+        "params": "phone: STRING",
         "returns": "TABLE",
-        "description": "Get call history for customer (last N calls)"
+        "description": "Get call history for customer (apply LIMIT when querying)"
     },
     "search_calls_by_classification": {
-        "params": "call_reason: STRING, limit_count: INT",
+        "params": "call_reason: STRING",
         "returns": "TABLE",
-        "description": "Search calls by classification/reason"
+        "description": "Search calls by classification/reason (apply LIMIT when querying)"
     }
 }
 
